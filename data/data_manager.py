@@ -1,0 +1,472 @@
+import torch
+
+from .nsynth_loader import NSynthLoader
+
+from utils.image_transform import NumpyResize, NumpyToTensor
+import torchvision.transforms as Transforms
+
+from .audio_transforms import complex_to_lin, lin_to_complex, \
+    RemoveDC, Compose, safe_log, mag_to_complex, \
+    AddDC, safe_exp, safe_log_spec, safe_exp_spec, mag_phase_angle, norm_audio, fold_cqt, unfold_cqt, fade_out, \
+    instantaneous_freq, inv_instantanteous_freq, instantaneous_freq
+
+from nsgt import NSGT, LogScale, LinScale, MelScale, OctScale
+from librosa.core import magphase
+import numpy as np
+from torch.nn.modules.padding import ConstantPad2d
+import librosa
+import ipdb
+
+from utils.utils import find_nearest_p2
+
+
+# TO-DO: add function to get the output of the pipelin
+# on intermediate positions
+
+class DataManager(object):
+    """
+        This class manages all datasets and given
+        the config for each of them it returns
+        the corresponding DataLoader object and
+        the pre-processing transforms.
+    """
+    # define available audio transforms
+    AUDIO_TRANSFORMS = ["waveform", "stft", "mel", "cqt", "cqt_nsgt", "specgrams", "mfcc"]
+
+    def __init__(self,
+                 dbname,
+                 data_path, 
+                 output_path,
+                 data_type,
+                 transformConfig=None,
+                 transform=None,
+                 preprocess=False,
+                 **kargs):
+        """
+            Creates a data manager
+
+            @arg
+
+        """
+
+        self.dbname = dbname
+        self.pre_pipeline = []
+        self.post_pipeline = []
+        self.set_atts(**transformConfig)
+        self.init_transform_pipeline(transform)
+        self.loader = NSynthLoader
+        self.data_path = data_path
+        self.output_path = output_path
+
+
+    def set_atts(self, **kargs):
+        for k, v in kargs.items():
+            setattr(self, k, v)
+    def init_transform_pipeline(self, transform):
+        raise NotImplementedError
+
+
+class AudioDataManager(DataManager):
+    def __init__(self,
+                 loaderConfig,
+                 sample_rate=16000,
+                 audio_length=16000,
+                 transform='waveform',
+                 **kargs):
+        self.audio_length = audio_length
+        self.sample_rate = sample_rate
+        DataManager.__init__(self, transform=transform, **kargs)
+
+        self.loader = self.loader(dbname=f"{self.dbname}_{transform}",
+                                            data_path=self.data_path,
+                                            output_path=self.output_path,
+                                            transform=None,
+                                            preprocessing=Compose(self.pre_pipeline),
+                                            audio_length=self.audio_length,
+                                            **loaderConfig)
+
+        print(f"Loading data. Found {len(self.loader)} instances")
+    
+
+    def set_per_batch_transform(self, transform):
+        self.loader.set_transform(transform)
+
+    def init_transform_pipeline(self, transform):
+        """
+            Function that initializes the transformation pipeline
+
+            Args:
+                transform (str): name of the transformation
+        """
+
+        # Domain specific transforms
+        assert transform in self.AUDIO_TRANSFORMS, \
+            f"Transform '{transform}' not in {self.AUDIO_TRANSFORMS}"
+        
+        print(f"Configurign {transform} transform...")
+        self.transform = transform
+        {   
+            "waveform":  self.build_waveform_pipeline,
+            "stft":      self.build_stft_pipeline,
+            "specgrams": self.build_specgrams_pipeline,
+            "mel":       self.build_mel_pipeline,
+            "cqt":       self.build_cqt_pipeline,
+            "cqt_nsgt":  self.build_cqt_nsgt_pipeline,
+            "mfcc":      self.build_mfcc_pipeline
+        }[self.transform]()
+
+    def build_waveform_pipeline(self): 
+        self._add_audio_loader()
+        self._add_signal_zeropadding()
+        self._add_fade_out()
+        self._add_norm()
+        self.output_shape = (1, 1, self.audio_length)
+
+        def in_reshape(x):
+            return x.reshape(self.audio_length)
+        def out_reshape(x):
+            return x.reshape(self.output_shape)
+
+        self.post_pipeline.insert(0, in_reshape)
+        self.pre_pipeline.append(out_reshape)
+
+    def build_stft_pipeline(self):
+        self._init_stft_params()
+        self._add_audio_loader()
+        self._add_signal_zeropadding()
+        self._add_fade_out()
+        self._add_norm()
+        self._add_stft()
+        self._complex_to_lin()
+        self._add_rm_dc()
+        self.output_shape = (2, self.n_bins, self.n_frames)
+
+    def build_specgrams_pipeline(self):
+        self._init_stft_params()
+        self._add_audio_loader()
+        self._add_signal_zeropadding()
+        self._add_fade_out()
+        self._add_norm()
+        self._add_stft()
+        self._add_mag_phase()
+        self._add_rm_dc()
+        self._add_log_mag()
+        self._add_ifreq()
+        # TO-DO: add rm magnitude
+        self.output_shape = (2, self.n_bins, self.n_frames)
+
+    def build_mel_pipeline(self):
+        def mel(x):
+            return librosa.feature.melspectrogram(
+                x.reshape(-1), 
+                sr=self.sample_rate,
+                n_fft=getattr(self, 'fft_size', 2048),
+                hop_length=self.hop_size,
+                win_length=getattr(self, 'win_size', 1024),
+                n_mels=getattr(self, 'n_mels', 128)
+            )
+        def imel(x):
+            return librosa.feature.inverse.mel_to_audio(
+                x.squeeze(0),
+                sr=self.sample_rate,
+                n_iter=getattr(self, 'gl_n_iter', 100),
+                n_fft=getattr(self, 'fft_size', 2048), 
+                hop_length=self.hop_size,
+                win_length=getattr(self, 'win_size', 1024))
+        def reshape(x):
+            return x.reshape(self.output_shape)
+        def to_numpy(x):
+            if type(x) == np.ndarray:
+                return x
+            return x.numpy()
+
+        self._init_stft_params()
+        
+        self.output_shape = (1, getattr(self, 'n_mels', 128), self.n_frames) 
+
+        self._add_audio_loader()
+        self._add_signal_zeropadding()
+        self._add_fade_out()
+        self._add_norm()
+        self.pre_pipeline.append(mel)
+        self.post_pipeline.insert(0, imel)
+        self.pre_pipeline.append(reshape)
+        self.post_pipeline.insert(0, reshape)
+
+        # self._add_log_mag()
+        self.post_pipeline.insert(0, to_numpy)
+        
+
+    def build_mfcc_pipeline(self):
+        def reshape(x):
+            return x.reshape(self.output_shape)
+        def to_numpy(x):
+            if type(x) == np.ndarray:
+                return x
+            return x.numpy()
+
+        self._init_stft_params()
+        self._add_audio_loader()
+        self._add_signal_zeropadding()
+        self._add_fade_out()
+        self._add_norm()
+        mfcc = \
+            lambda x : librosa.feature.mfcc(
+                y=x, 
+                sr=self.sample_rate,
+                n_fft=getattr(self, 'fft_size', 2048),
+                n_mels=getattr(self, 'n_mel', 128),
+                hop_length=self.hop_size,
+                win_length=getattr(self, 'win_size', 1024),
+                S=None, 
+                n_mfcc=getattr(self, 'n_mfcc', 20), 
+                dct_type=2, 
+                norm='ortho', 
+                lifter=0)
+        imfcc = \
+            lambda x: librosa.feature.inverse.mfcc_to_audio(
+                x.squeeze(0),
+                n_mels=getattr(self, 'n_mel', 128),
+                sr=self.sample_rate,
+                n_iter=getattr(self, 'gl_n_iter', 100),
+                n_fft=getattr(self, 'fft_size', 2048),
+                win_length=getattr(self, 'win_size', 1024),
+                hop_length=self.hop_size,
+                dct_type=2, 
+                norm='ortho', 
+                ref=1.0)
+
+        self.pre_pipeline.append(mfcc)
+        self.post_pipeline.insert(0, imfcc)
+    
+        self.output_shape = (1, getattr(self, 'n_mfcc', 128), self.n_frames)
+        
+        self.pre_pipeline.append(reshape)
+        self.post_pipeline.insert(0, reshape)
+        self.post_pipeline.insert(0, to_numpy)
+        
+        
+    def build_cqt_pipeline(self):
+        def reshape(x):
+            return x.reshape(self.output_shape)
+
+        def cqt(x):
+            return librosa.core.cqt(x,
+                               sr=self.sample_rate,
+                               hop_length=self.hop_size,
+                               n_bins=getattr(self, 'n_cqt', 84),
+                               bins_per_octave=getattr(self, 'bins_per_octave', 12))
+        def icqt(x):
+            return librosa.core.icqt(x,
+                                     sr=self.sample_rate,
+                                     hop_length=self.hop_size)
+        self._init_stft_params()
+        self._add_audio_loader()
+        self._add_signal_zeropadding()
+        self._add_fade_out()
+        self._add_norm()
+
+        self.pre_pipeline.append(cqt)
+        self.post_pipeline.insert(0, icqt)
+        self._add_mag_phase()
+        self._add_log_mag()
+        self._add_ifreq()
+
+        self.output_shape = (2, getattr(self, 'n_cqt', 84), self.n_frames)
+        self.pre_pipeline.append(reshape)
+        self.post_pipeline.insert(0, reshape)
+
+    def build_cqt_nsgt_pipeline(self):
+        print("")
+        print("Configuring cqt_NSGT pipeline...")
+
+        scales  = {'log':LogScale,
+                   'lin':LinScale,
+                   'mel':MelScale,
+                   'oct':OctScale}
+        nsgt_scale = scales[getattr(self, 'nsgt_scale', 'log')]
+        nsgt_scale = nsgt_scale(getattr(self, 'fmin', 20),
+                                getattr(self, 'fmax', self.sample_rate / 2),
+                                getattr(self, 'n_bins', 96))
+        nsgt = NSGT(nsgt_scale,
+                    self.sample_rate, 
+                    self.audio_length, 
+                    real=getattr(self, 'real', False), 
+                    matrixform=getattr(self, 'matrix_form', True), 
+                    reducedform=getattr(self, 'reduced_form', False))
+        self.n_bins = len(nsgt.wins)
+        self.n_frames = nsgt.ncoefs
+
+        self.output_shape = (2, int(self.n_bins/2), int(self.n_frames))
+        ######### TRANSFORMS #########
+        reshape = lambda x: x.reshape(-1,)
+
+        self._add_audio_loader()
+        self._add_signal_zeropadding()
+        self._add_fade_out()
+        self._add_norm()
+        self.pre_pipeline.extend([reshape, nsgt.forward])
+        self.post_pipeline.insert(0, nsgt.backward)
+        self._add_mag_phase()
+        self._add_log_mag()
+        self._add_ifreq()
+        self._add_padding()
+        # Add folded cqt
+        if getattr(self, 'fold_cqt', False):
+            self.pre_pipeline.append(fold_cqt)
+            self.post_pipeline.insert(0, unfold_cqt)
+            self.output_shape = (4, int(self.n_bins/2), int(self.n_frames))
+    
+    def _add_audio_loader(self):
+        def loader(x):
+            return librosa.core.load(
+            x,
+            sr=self.sample_rate,
+            mono=True,
+            offset=0.0,
+            duration=self.audio_length / self.sample_rate,
+            dtype=np.float32,
+            res_type='kaiser_best')[0]  # We index 0 to remove the sample rate
+        self.pre_pipeline.append(loader)
+
+    def _add_fade_out(self):
+                
+        # Common transforms
+        if getattr(self, 'fade_out', False):
+            self.pre_pipeline.append(fade_out)
+
+    def _add_norm(self):
+        if getattr(self, 'normalization', False):
+            self.post_pipeline.insert(0, norm_audio)
+    def _complex_to_lin(self):
+            self.pre_pipeline.append(complex_to_lin) 
+            self.post_pipeline.insert(0, lin_to_complex)
+
+    def _add_signal_zeropadding(self):
+        def zeropad(signal):
+            if len(signal) < self.audio_length:
+                return np.append(
+                    signal, 
+                    np.zeros(self.audio_length - len(signal))
+                )
+            else:
+                return signal
+        self.pre_pipeline.append(zeropad)
+
+    def _add_padding(self):
+        if getattr(self, 'padding', False):
+
+            p2_n_bins = find_nearest_p2(self.n_bins)
+            p2_n_frames = find_nearest_p2(self.n_frames)
+
+            pad_diff_w = p2_n_bins - self.n_bins
+            pad_diff_h = p2_n_frames - self.n_frames
+
+            self.output_shape = (2, p2_n_bins, p2_n_frames)
+
+            padding = ConstantPad2d((0, pad_diff_h, 0, pad_diff_w), 0.0)
+            self.pre_pipeline.append(padding)
+            # TODO: put appropiate unpadding method
+            unpad = lambda x: x[:, :-pad_diff_w, :-pad_diff_h]
+            self.postprocess.insert(0, unpad)
+
+    def _init_stft_params(self):
+        if not hasattr(self, 'hop_size'):
+            self.hop_size = int(getattr(self, 'win_size', 1024) / 2)
+        if hasattr(self, 'n_frames'):
+            self.audio_length = self.n_frames * self.hop_size - 1 # we substract one so we get exactly self.n_frames 
+
+        self.n_bins = int(getattr(self, 'fft_size', 2048) / 2)
+
+    def _add_stft(self):
+        def stft(x):
+            return librosa.core.stft(
+                    x,
+                    hop_length=getattr(self, 'hop_size', 512),
+                    win_length=getattr(self, 'win_size', 1024),
+                    n_fft=getattr(self, 'fft_size', 1024))
+        def istft(x):
+            return librosa.core.istft(
+                    x,
+                    hop_length=getattr(self, 'hop_size', 512),
+                    win_length=getattr(self, 'win_size', 1024))
+        self.pre_pipeline.append(stft)
+        self.post_pipeline.insert(0, istft)
+
+    def _add_mag_phase(self):
+        # Add complex to mag/ph transform
+        mag_ph   = lambda x: mag_phase_angle(x)
+        i_mag_ph = lambda x: mag_to_complex(x)
+        self.pre_pipeline.append(mag_ph)
+        self.post_pipeline.insert(0 , i_mag_ph)
+
+    def _add_rm_dc(self):
+        if getattr(self, 'rm_dc', True):
+            # Remove DC transform
+            # TO-DO: if removing DC probably need to shange output shape
+            self.pre_pipeline.append(RemoveDC())
+            self.post_pipeline.insert(0, AddDC())
+
+    def _add_log_mag(self):
+        # Log magnitude
+        if getattr(self, 'log_mag', True):
+            self.pre_pipeline.append(safe_log_spec)
+            self.post_pipeline.insert(0, safe_exp_spec)
+
+    def _add_ifreq(self):
+        if getattr(self, 'ifreq', False):
+            self.pre_pipeline.append(instantaneous_freq)
+            self.post_pipeline.insert(0, inv_instantanteous_freq)
+
+    def get_output_shape(self):
+        return list(self.output_shape)
+
+    def get_loader(self):
+        return self.loader
+
+    def _updateOpts(self, **new_opts):
+        for item, val in new_opts.items():
+            self.loaderOpts[item] = val
+
+    def get_post_processor(self, insert_transform=None):
+        if insert_transform is None:
+            return Compose(self.post_pipeline)
+        return Compose([insert_transform] + self.post_pipeline)
+
+
+
+class ImageDataManager(DataManager):
+    def __init__(self, dim=3, resize=True, norm=True, **kargs):
+        DataManager.__init__(self, **kargs)
+        self.dim = dim
+        self._init_transforms()
+
+    def _init_transforms(self):
+        self.transforms = [NumpyToTensor(),
+                           Transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
+
+    def _updateOpts(self, size=None):
+        self._init_transforms()
+        if size:
+
+            self.transforms = [NumpyResize(size)] + self.transforms
+
+        if self.dim == 1:
+            self.transforms = [Transforms.Grayscale(1)] + self.transforms
+
+        self.transforms = Transforms.Compose(self.transforms)
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(description='Testing script')
+    parser.add_argument('--dbname',  type=str, default='sinewaves',
+                         help='Name of the dataset to load')
+    output_path = '~/Developer/sandbox'
+    args = parser.parse_args()  
+    loader = getDataLoader(args.dbname)
+
+    loader(outputPath=output_path, freqs=[100, 200], sampleRate=16000, overwrite=True)
+
+
