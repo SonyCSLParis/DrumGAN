@@ -4,8 +4,6 @@ import torch.nn.functional as F
 
 import sys
 
-import ipdb
-
 
 def miniBatchStdDev(x, subGroupSize=4):
     r"""

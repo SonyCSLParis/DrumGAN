@@ -3,20 +3,17 @@ import torch
 import torch.nn
 import torch.nn.functional as F
 
-import ipdb
-
 from .pgan_config import _C
 from .progressive_gan import ProgressiveGAN
 from .gan_trainer import GANTrainer
-from utils.utils import getMinOccurence
+from utils.utils import getMinOccurence, mkdir_in_path
 from tqdm import trange
 
 from time import time
 import numpy as np
-from tools import mkdir_in_path
 
 import traceback
-
+from torch.nn.functional import interpolate
 
 class ResizeWrapper():
     def __init__(self, new_size):
@@ -88,9 +85,6 @@ class ProgressiveGANTrainer(GANTrainer):
         self.postprocessors = []
 
         GANTrainer.__init__(self, pathdb, **kwargs)
-
-        resize_inv = ResizeWrapper(self.outputShapes[-1])
-        self.visualisation.set_postprocessing(self.dataManager.get_post_processor(insert_transform=resize_inv))
 
 
     def initScaleShapes(self):
@@ -251,111 +245,66 @@ class ProgressiveGANTrainer(GANTrainer):
                                           + "_train_config.json")
             self.saveBaseConfig(pathBaseConfig)
         self.addStartingScales()
-        
-        try:
-            for scale in range(self.startScale, self.n_scales):
-                self.output_dir = mkdir_in_path(self.root_output_dir, f"scale_{scale}")
             
-                self.logger.info(f'Training scale {scale}...')
-                self.updateDatasetForScale(scale)
 
-                while scale >= len(self.lossProfile):
-                    self.lossProfile.append(
-                        {"scale": scale, "iter": []})
+        for scale in range(self.startScale, self.n_scales):
+            self.updateDatasetForScale(scale)
 
-                dbLoader = self.getDBLoader(scale)
-                n_batches_db = len(dbLoader)
+            while scale >= len(self.lossProfile):
+                self.lossProfile.append(
+                    {"scale": scale, "iter": []})
 
-                self.logger.info(f'Database number of batches: {n_batches_db}')
-                self.logger.info(f'Number of parameters: {self.model.countParams()}')
+            dbLoader = self.getDBLoader(scale)
+            n_batches_db = len(dbLoader)
 
-                self.iter = 0
-                if self.startIter > 0:
-                    self.iter = self.startIter
-                    self.startIter = 0
 
-                shiftAlpha = 0
+            self.iter = 0
+            if self.startIter > 0:
+                self.iter = self.startIter
+                self.startIter = 0
+
+            shiftAlpha = 0
+            while shiftAlpha < len(self.modelConfig.iterAlphaJump[scale]) and \
+                    self.modelConfig.iterAlphaJump[scale][shiftAlpha] < self.iter:
+                shiftAlpha += 1
+
+            n_iter = int(np.ceil(self.modelConfig.maxIterAtScale[scale] / n_batches_db))
+            pbar = trange(n_iter,
+                          desc='scale-loop')
+            for scale_iter in pbar:
+                if self.iter >= self.modelConfig.maxIterAtScale[scale]: break
+
+                self.indexJumpAlpha = shiftAlpha
+
+                t1 = time()
+                status = self.trainOnEpoch(dbLoader,
+                                           scale,
+                                           maxIter=self.modelConfig.maxIterAtScale[scale])
+                
+                if not status:
+                    return False
+                # self.iter += n_batches_db
                 while shiftAlpha < len(self.modelConfig.iterAlphaJump[scale]) and \
                         self.modelConfig.iterAlphaJump[scale][shiftAlpha] < self.iter:
                     shiftAlpha += 1
+                
+                # self.updateLossProfile(scale_iter)
+                try:        
+                    state_msg = (f'Epoch: {self.epoch}; G: {self.runningLoss["lossG"][0]:.3f}; D: {self.runningLoss["lossD"][0]:.3f};'
+                        f' Scale: {scale}')
+                    pbar.set_description(state_msg)
+                except KeyError as k:
+                    print(k)
+                    pass
+                
+                self.resetRunningLosses()
 
-                n_iter = int(np.ceil(self.modelConfig.maxIterAtScale[scale] / n_batches_db))
-                pbar = trange(n_iter,
-                              desc='scale-loop')
-                for scale_iter in pbar:
-                    if self.iter >= self.modelConfig.maxIterAtScale[scale]: break
+            if scale == self.n_scales - 1:
+                break
+            else:
+                self.model.addScale(self.modelConfig.depthScales[scale + 1])
 
-                    self.indexJumpAlpha = shiftAlpha
 
-                    t1 = time()
-                    status = self.trainOnEpoch(dbLoader,
-                                               scale,
-                                               maxIter=self.modelConfig.maxIterAtScale[scale])
-                    
-                    if not status:
-                        return False
-                    # self.iter += n_batches_db
-                    while shiftAlpha < len(self.modelConfig.iterAlphaJump[scale]) and \
-                            self.modelConfig.iterAlphaJump[scale][shiftAlpha] < self.iter:
-                        shiftAlpha += 1
-                    
-                    # self.updateLossProfile(scale_iter)
-                    try:        
-                        state_msg = (f'Epoch: {self.epoch}; G: {self.runningLoss["lossG"][0]:.3f}; D: {self.runningLoss["lossD"][0]:.3f};'
-                            f' Scale: {scale}')
-                        pbar.set_description(state_msg)
-                    except KeyError as k:
-                        print(k)
-                        pass
-                    
-                    self.resetRunningLosses()
-
-                if scale == self.n_scales - 1:
-                    break
-                else:
-                    self.model.addScale(self.modelConfig.depthScales[scale + 1])
-
-        except KeyboardInterrupt as e:
-            self.logger.info(f'Aborting training')
-            print("ABORTING TRAINING")
-            print("")
-            print(e)
-            print(traceback.print_tb(e.__traceback__))
-            print("")
-
-            if self.iter > 0:
-                print("")
-                print("Saving checkpoint...")
-                print("")
-                self.updateLossProfile(self.iter)
-                checkp_name = self.modelLabel + ("_s%d_i%d" % (scale, self.iter))
-                self.saveCheckpoint(outDir=self.checkPointDir,
-                                    outLabel=checkp_name,
-                                    scale=scale,
-                                    iter=self.iter)
-        except Exception as e:
-
-            if self.debug: raise e
-
-            self.logger.info(f'Aborting training')
-            print("ABORTING TRAINING")
-            print("")
-            print(e)
-            print(traceback.print_tb(e.__traceback__))
-            print("")
-
-            if self.iter > 0:
-                print("")
-                print("Saving checkpoint...")
-                print("")
-                self.updateLossProfile(self.iter)
-                checkp_name = self.modelLabel + ("_s%d_i%d" % (scale, self.iter))
-                self.saveCheckpoint(outDir=self.checkPointDir,
-                                    outLabel=checkp_name,
-                                    scale=scale,
-                                    iter=self.iter)
-        self.logger.info(f'\n{self.model.getOriginalG()}\n')
-        self.logger.info(f'\n{self.model.getOriginalD()}\n')
         self.startScale = self.n_scales
         self.startIter = self.modelConfig.maxIterAtScale[-1]
         return True

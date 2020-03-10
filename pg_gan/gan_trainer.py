@@ -4,19 +4,12 @@ import pickle as pkl
 import numpy as np
 
 import torch
-import ipdb
 
 from utils.config import getConfigFromDict, getDictFromConfig, BaseConfig
 
 from tqdm import tqdm, trange
 
-from tools import checkexists_mkdir, mkdir_in_path
-
-import logging
 from time import time
-
-# from torch.utils.tensorboard import SummaryWriter
-from tensorboardX import SummaryWriter
 
 
 class GANTrainer():
@@ -42,11 +35,7 @@ class GANTrainer():
                  selectedAttributes=None,
                  imagefolderDataset=False,
                  ignoreAttribs=False,
-                 pathPartition=None,
-                 partitionValue=None,
-                 dataType='IMAGE',
                  nSamples=10,
-                 debug=False,
                  **kargs):
         r"""
         Args:
@@ -75,18 +64,12 @@ class GANTrainer():
                                         object
             - ignoreAttribs (bool): set to True if the input attrib dict should
                                     only be used as a filter on image's names
-            - pathPartition (string): if only a subset of the original dataset
-                                      should be used
             - pathValue (string): partition value
         """
 
         # Parameters
         # Training dataset
-        self.debug = debug
         self.path_db = pathdb
-        self.pathPartition = pathPartition
-        self.partitionValue = partitionValue
-        self.dataType = dataType
 
         if config is None:
             config = {}
@@ -108,10 +91,6 @@ class GANTrainer():
             self.pathRefVector = os.path.abspath(os.path.join(self.checkPointDir,
                                                               self.modelLabel
                                                               + '_refVectors.pt'))
-       # Visualization
-        self.visualisation = visualisation
-        self.lossVisualizer = visualisation.lossVisualizer
-        self.lossVisualizer.publish_config_file(config)
 
         # Initialize the model
         self.useGPU = useGPU
@@ -147,27 +126,8 @@ class GANTrainer():
         self.epoch = 0
         # print("%d images detected" % int(len(self.getDataset(0, size=10))))
         self.initModel()
-        # Audio rendering
-        self.audioRender = audioRender
-        self.root_output_dir = mkdir_in_path(checkPointDir, 'output')
-
-        # self.nDataVisualization = 16
-        self.nDataVisualization = nSamples
-            
-        self.refVectorVisualization, self.refVectorLabels = \
-            self.model.buildNoiseData(self.nDataVisualization)
         # Loss printing
         self.lossIterEvaluation = lossIterEvaluation
-
-        print(f"Setting logging file")
-        self.logger = logging.getLogger()
-        fhandler = logging.FileHandler(filename=f'{checkPointDir}/{self.modelLabel}.log', mode='a')
-        formatter = logging.Formatter('%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s')
-        fhandler.setFormatter(formatter)
-        self.logger.addHandler(fhandler)
-        self.logger.setLevel(logging.INFO)
-
-        self.writer = SummaryWriter(mkdir_in_path(checkPointDir, 'runs'))
 
 
     def initModel(self):
@@ -284,21 +244,6 @@ class GANTrainer():
                         loadD=not loadGOnly,
                         finetuning=finetune)
 
-        # Build retrieve the reference vectors
-        self.refVectorPath = tmpConfig.get("refVectors", None)
-        if self.refVectorPath is None:
-            self.refVectorVisualization, self.refVectorLabels = \
-                self.model.buildNoiseData(self.nDataVisualization)
-        elif not os.path.isfile(self.refVectorPath):
-            print("WARNING : no file found at " + self.refVectorPath
-                  + " building new reference vectors")
-            self.refVectorVisualization, self.refVectorLabels = \
-                self.model.buildNoiseData(self.nDataVisualization, skipAtts=True)
-        else:
-            self.refVectorVisualization = torch.load(
-                open(self.refVectorPath, 'rb'),
-                map_location="cuda" if self.useGPU else "cpu")
-
     def getDefaultConfig(self):
         pass
 
@@ -354,9 +299,6 @@ class GANTrainer():
                      'refVectors': self.pathRefVector,
                      'runningLoss': self.runningLoss}
 
-        # Save the reference vectors
-        torch.save(self.refVectorVisualization, open(self.pathRefVector, 'wb'))
-
         with open(pathTmpConfig, 'w') as fp:
             json.dump(outConfig, fp, indent=4)
 
@@ -365,25 +307,6 @@ class GANTrainer():
         else:
             pkl.dump(self.lossProfile, open(self.pathLossLog, 'wb'))
 
-    def eval_save(self,
-                  real_input,
-                  real_labels,
-                  scale):
-        outLabel = self.modelLabel + ("_s%d_i%d" % (scale, self.iter + 1))
-        inputLatent, _ = self.model.buildNoiseData(
-            len(real_input), real_labels, skipAtts=True)
-
-        ref_g = self.model.test(inputLatent)
-        ref_g_smooth = self.model.test(inputLatent, True)
-        name_real = f"{outLabel}_scale_{scale}_real"
-        name_gen  = f"{outLabel}_scale_{scale}_gen"
-        name_avg  = f"{outLabel}_scale_{scale}_avg"
-
-    def sendLossToVisualization(self, scale):
-
-        self.lossVisualizer.publish(data=self.lossProfile[scale],
-                            name=self.modelLabel + f'loss_scale_{scale}',
-                            output_dir=self.output_dir)
 
     def getMiniBatchSize(self, scale):
 
@@ -418,12 +341,8 @@ class GANTrainer():
                                            pin_memory=True,
                                            num_workers=self.dataConfig.get("num_workers", 0))
 
-    def getDataset(self, size=None, audio=False):
-
-        self.visualisation.set_postprocessing(self.data_manager.post_pipeline)
-        loader = self.data_manager.get_loader()
-
-        return loader
+    def getDataset(self):
+        raise NotImplementedError
 
     def inScaleUpdate(self, iter, scale, inputs_real):
         return inputs_real
@@ -475,11 +394,6 @@ class GANTrainer():
                 if inputs_real.size()[0] < self.getMiniBatchSize(scale):
                     continue
 
-                evaluate = (self.iter + 1) % (self.lossIterEvaluation) == 0 \
-                            and self.visualisation is not None
-
-                if evaluate: self.model.register_grads = True
-
                 # Additionnal updates inside a scale
                 inputs_real = self.inScaleUpdate(self.iter, scale, inputs_real)
                 # Optimize parameters
@@ -508,16 +422,12 @@ class GANTrainer():
                     self.resetRunningLosses()
                     self.sendLossToVisualization(scale)
 
-                # Evaluation and visualize 
-                if evaluate:
-                    self.evaluation(scale)
                 # Save checkpoint
-                if self.checkPointDir is not None and self.iter % (self.saveIter - 1) == 0 and self.iter != 0:
+                if self.checkPointDir is not None and \
+                   self.iter % (self.saveIter - 1) == 0 and \
+                   self.iter != 0:
+
                     labelSave = self.modelLabel + ("_s%d_i%d" % (scale, self.iter))
-                    # Evaluate
-                    self.eval_save(real_input=inputs_real,
-                                   real_labels=labels,
-                                   scale=scale)
                     # Save Checkpoint
                     self.saveCheckpoint(outDir=self.checkPointDir,
                                         outLabel=labelSave,

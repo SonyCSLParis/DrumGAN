@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import ipdb
-
 from .custom_layers import EqualizedConv1d, EqualizedConv2d, EqualizedLinear,\
     NormalizationLayer, Upscale2d, GANsynthInitFormatLayer
 from utils.utils import num_flat_features

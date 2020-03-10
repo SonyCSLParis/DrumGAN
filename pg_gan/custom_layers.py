@@ -5,7 +5,6 @@ import torch
 
 from numpy import prod, sqrt
 
-import ipdb
 
 class NormalizationLayer(nn.Module):
 

@@ -1,5 +1,4 @@
 import torch
-import ipdb
 
 def WGANGPGradientPenalty(input, fake, discriminator, weight, backward=True):
     r"""
@@ -60,32 +59,3 @@ def WGANGPGradientPenalty(input, fake, discriminator, weight, backward=True):
 
     return gradient_penalty.item(), lipschitz_norm.item()
 
-
-def logisticGradientPenalty(input, discrimator, weight, backward=True):
-    r"""
-    Gradient penalty described in "Which training method of GANs actually
-    converge
-    https://arxiv.org/pdf/1801.04406.pdf
-
-    Args:
-
-        - input (Tensor): batch of real data
-        - discrimator (nn.Module): discriminator network
-        - weight (float): weight to apply to the penalty term
-        - backward (bool): loss backpropagation
-    """
-
-    locInput = torch.autograd.Variable(
-        input, requires_grad=True)
-    gradients = torch.autograd.grad(outputs=discrimator(locInput)[:, 0].sum(),
-                                    inputs=locInput,
-                                    create_graph=True, retain_graph=True)[0]
-
-    gradients = gradients.view(gradients.size(0), -1)
-    gradients = (gradients * gradients).sum(dim=1).mean()
-
-    gradient_penalty = gradients * weight
-    if backward:
-        gradient_penalty.backward(retain_graph=True)
-
-    return gradient_penalty.item()

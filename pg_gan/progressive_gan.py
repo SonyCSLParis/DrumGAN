@@ -1,8 +1,6 @@
 import torch.optim as optim
 import torch.nn as nn
 
-import ipdb
-
 from .base_GAN import BaseGAN
 from utils.config import BaseConfig
 from .progressive_conv_net import GNet, DNet
