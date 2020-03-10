@@ -1,15 +1,44 @@
-import ipdb
-
 import os
 import time
 import json
 from math import inf
-import numpy as np
 
 import torch
 
 
+def checkexists_mkdir(path):
+    if not os.path.exists(path):
+        os.mkdir(path)
+        return False
+    else:
+        return True
 
+def mkdir_in_path(path, dirname):
+    dirpath = os.path.join(path, dirname)
+    checkexists_mkdir(dirpath)
+    return dirpath
+
+def read_json(path):
+    assert path.endswith('.json'), \
+       f"Path {path} is not a JSON file."
+    assert os.path.exists(path), \
+       f"Path {path} doesn't exist!"
+    with open(path) as file:
+        data = json.load(file)
+    file.close()
+    return data
+
+def filter_files_in_path(dir_path, format='.wav'):
+    return filter(lambda x: x.endswith(format), os.listdir(dir_path))
+
+def list_files_abs_path(dir_path, format='.wav'):
+    return map(lambda x: os.path.join(dir_path, x), filter_files_in_path(dir_path, format))
+
+def filter_keys_in_strings(strings, keys):
+    return filter(lambda x: any([k in x for k in keys]), strings)
+
+def get_filename(abs_path):
+    return os.path.splitext(os.path.basename(abs_path))[0]
 
 def isinf(tensor):
     r"""Returns a new tensor with boolean elements representing if each element
@@ -355,9 +384,6 @@ def GPU_is_available():
     cuda_available = torch.cuda.is_available()
     if not cuda_available: print("Cuda not available. Running on CPU")
     return cuda_available
-        
-def find_nearest_p2(val):
-    return 2**np.ceil(np.log2(val)).astype(np.int16)
 
 def read_json(file_path):
     if not os.path.exists(file_path): 
@@ -368,15 +394,4 @@ def read_json(file_path):
             file.close()  
         return data 
 
-def PCA(X, k=2):
-    # preprocess the data
-    if type(X) == np.ndarray:
-        X = torch.from_numpy(X)
-
-    X_mean = torch.mean(X,0)
-    X = X - X_mean.expand_as(X)
-
-    # svd
-    U,S,V = torch.svd(torch.t(X))
-    return torch.mm(X,U[:,:k])
         
