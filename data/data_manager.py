@@ -2,9 +2,6 @@ import torch
 
 from .nsynth_loader import NSynthLoader
 
-from utils.image_transform import NumpyResize, NumpyToTensor
-import torchvision.transforms as Transforms
-
 from .audio_transforms import complex_to_lin, lin_to_complex, \
     RemoveDC, Compose, safe_log, mag_to_complex, \
     AddDC, safe_exp, safe_log_spec, safe_exp_spec, mag_phase_angle, norm_audio, fold_cqt, unfold_cqt, fade_out, \
@@ -15,9 +12,6 @@ from librosa.core import magphase
 import numpy as np
 from torch.nn.modules.padding import ConstantPad2d
 import librosa
-import ipdb
-
-from utils.utils import find_nearest_p2
 
 
 # TO-DO: add function to get the output of the pipelin
@@ -31,13 +25,13 @@ class DataManager(object):
         the pre-processing transforms.
     """
     # define available audio transforms
-    AUDIO_TRANSFORMS = ["waveform", "stft", "mel", "cqt", "cqt_nsgt", "specgrams", "mfcc"]
+    AUDIO_TRANSFORMS = ["waveform", "stft", "mel", "cqt", "cq_nsgt", "specgrams", "mfcc"]
 
     def __init__(self,
-                 dbname,
                  data_path, 
                  output_path,
-                 data_type,
+                 data_type='audio',
+                 dbname='nsynth',
                  transformConfig=None,
                  transform=None,
                  preprocess=False,
@@ -111,7 +105,7 @@ class AudioDataManager(DataManager):
             "specgrams": self.build_specgrams_pipeline,
             "mel":       self.build_mel_pipeline,
             "cqt":       self.build_cqt_pipeline,
-            "cqt_nsgt":  self.build_cqt_nsgt_pipeline,
+            "cq_nsgt":   self.build_cqt_nsgt_pipeline,
             "mfcc":      self.build_mfcc_pipeline
         }[self.transform]()
 
@@ -310,7 +304,6 @@ class AudioDataManager(DataManager):
         self._add_mag_phase()
         self._add_log_mag()
         self._add_ifreq()
-        self._add_padding()
         # Add folded cqt
         if getattr(self, 'fold_cqt', False):
             self.pre_pipeline.append(fold_cqt)
@@ -353,22 +346,6 @@ class AudioDataManager(DataManager):
                 return signal
         self.pre_pipeline.append(zeropad)
 
-    def _add_padding(self):
-        if getattr(self, 'padding', False):
-
-            p2_n_bins = find_nearest_p2(self.n_bins)
-            p2_n_frames = find_nearest_p2(self.n_frames)
-
-            pad_diff_w = p2_n_bins - self.n_bins
-            pad_diff_h = p2_n_frames - self.n_frames
-
-            self.output_shape = (2, p2_n_bins, p2_n_frames)
-
-            padding = ConstantPad2d((0, pad_diff_h, 0, pad_diff_w), 0.0)
-            self.pre_pipeline.append(padding)
-            # TODO: put appropiate unpadding method
-            unpad = lambda x: x[:, :-pad_diff_w, :-pad_diff_h]
-            self.postprocess.insert(0, unpad)
 
     def _init_stft_params(self):
         if not hasattr(self, 'hop_size'):
@@ -402,8 +379,7 @@ class AudioDataManager(DataManager):
 
     def _add_rm_dc(self):
         if getattr(self, 'rm_dc', True):
-            # Remove DC transform
-            # TO-DO: if removing DC probably need to shange output shape
+            # Remove DC transforms
             self.pre_pipeline.append(RemoveDC())
             self.post_pipeline.insert(0, AddDC())
 
@@ -432,41 +408,4 @@ class AudioDataManager(DataManager):
         if insert_transform is None:
             return Compose(self.post_pipeline)
         return Compose([insert_transform] + self.post_pipeline)
-
-
-
-class ImageDataManager(DataManager):
-    def __init__(self, dim=3, resize=True, norm=True, **kargs):
-        DataManager.__init__(self, **kargs)
-        self.dim = dim
-        self._init_transforms()
-
-    def _init_transforms(self):
-        self.transforms = [NumpyToTensor(),
-                           Transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))]
-
-    def _updateOpts(self, size=None):
-        self._init_transforms()
-        if size:
-
-            self.transforms = [NumpyResize(size)] + self.transforms
-
-        if self.dim == 1:
-            self.transforms = [Transforms.Grayscale(1)] + self.transforms
-
-        self.transforms = Transforms.Compose(self.transforms)
-
-
-if __name__ == '__main__':
-    import argparse
-
-    parser = argparse.ArgumentParser(description='Testing script')
-    parser.add_argument('--dbname',  type=str, default='sinewaves',
-                         help='Name of the dataset to load')
-    output_path = '~/Developer/sandbox'
-    args = parser.parse_args()  
-    loader = getDataLoader(args.dbname)
-
-    loader(outputPath=output_path, freqs=[100, 200], sampleRate=16000, overwrite=True)
-
 

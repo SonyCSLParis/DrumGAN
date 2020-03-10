@@ -3,14 +3,10 @@ import os.path
 import dill
 import torch.utils.data as data
 import torch
-# import torchaudio
-from tools import read_json, checkexists_mkdir, mkdir_in_path, filter_keys_in_strings, list_files_abs_path, get_filename
+from utils.utils import checkexists_mkdir, mkdir_in_path, read_json, read_json, filter_keys_in_strings, list_files_abs_path, get_filename
 
 import numpy as np
-import torchvision
-# from torchaudio.transforms import MagPhSpectrogram
 
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 from .db_stats import buildKeyOrder
 from tqdm import tqdm, trange
 
@@ -18,7 +14,7 @@ import logging
 from random import shuffle
 
 from copy import deepcopy
-from audiolazy.lazy_midi import midi2str
+# from audiolazy.lazy_midi import midi2str
 
 
 FORMATS = ["wav", "mp3"]
@@ -165,7 +161,7 @@ class NSynthLoader(AudioDataLoader):
             'mallet', 'organ', 'reed', 'string', 'synth_lead', 'vocal'
         ],
         "instrument": [f'_{i}' for i in range(1006)],
-        "pitch":      [midi2str(i) for i in range(0, 121)],
+        # "pitch":      [midi2str(i) for i in range(0, 121)],
         "velocity":   [f'_{i}' for i in range(0, 128)],
         "qualities": [
             "bright", "dark", "distortion", "fast_decay",
@@ -219,7 +215,7 @@ class NSynthLoader(AudioDataLoader):
         print("")
         self.size = len(self.data)
         del self.att_dict
-        self.get_att_class_list()
+        # self.get_att_class_list()
 
     def count_attributes(self):
         def count_att(att_dict):
@@ -387,12 +383,12 @@ class NSynthLoader(AudioDataLoader):
             self.shiftAttribVal[attribName] = {
                 name: c for c, name in enumerate(attribVals)}
 
-    def get_att_class_list(self):
-        self.att_classes = []
+    # def get_att_class_list(self):
+    #     self.att_classes = []
 
-        for k, vals in self.att_dict_list.items():
-            if len(vals) == 1: continue
-            self.att_classes.append([self.ATT_DICT[k][v] for v in vals])
+    #     for k, vals in self.att_dict_list.items():
+    #         if len(vals) == 1: continue
+    #         self.att_classes.append([self.ATT_DICT[k][v] for v in vals])
 
     def index_to_labels(self, idx_batch):
         output_labels = []
@@ -413,8 +409,8 @@ class NSynthLoader(AudioDataLoader):
     def label_to_source(self, label):
         return self.src_list[int(label)]
 
-    def label_to_pitch(self, label):
-        return midi2str(label)
+    # def label_to_pitch(self, label):
+    #     return midi2str(label)
 
 
 class SineWaveLoader(AudioDataLoader):
