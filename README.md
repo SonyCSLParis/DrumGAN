@@ -23,16 +23,18 @@ You can run the evaluation metrics described in the paper: Pitch Inception Score
 
 * For computing Inception Scores run:
 ```
-python evaluation.py <PIS or IIS> --fake <path_to_fake_data>
+python eval.py <PIS or IIS> --fake <path_to_fake_data>
 ```
 
 * For distance-like evaluation run:
 ```
-python evaluation.py <PKID, IKID or FAD> --real_path <path_to_real_data> --fake <path_to_fake_data>
+python eval.py <PKID, IKID or FAD> --real_path <path_to_real_data> --fake <path_to_fake_data>
 ```
 
 # Synthesizing audio with a model
-
+```
+python generate.py <random, scale, interpolation or from_midi> -d <path_to_model_root_folder> --nsynth-path <path_to_nsynth_data>
+```
 # Audio examples
 [Here](https://sites.google.com/view/audio-synthesis-with-gans/p%C3%A1gina-principal) you can listen to audios synthesized with models trained on a variety of audio representations, includeing the raw audio waveform and several time-frequency representations.
 # Notes
