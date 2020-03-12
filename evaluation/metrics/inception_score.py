@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn.functional as F
 import numpy as np
-import ipdb
+
 
 class InceptionScore():
     def __init__(self, classifier):
@@ -29,7 +29,6 @@ class InceptionScore():
         self.nItems += y.size()[0]
 
     def getScore(self, eps=1e-06):
-        ipdb.set_trace()
         x = self.sumSoftMax
         x = x * torch.log(x / self.nItems + eps)
         output = self.sumEntropy - (x.sum().item())
