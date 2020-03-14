@@ -10,7 +10,8 @@ from utils.utils import getVal, getLastCheckPoint, loadmodule, GPU_is_available,
 from utils.config import getConfigOverrideFromParser, updateParserWithConfig
 
 from pg_gan.progressive_gan_trainer import ProgressiveGANTrainer
-from data.data_manager import AudioDataManager
+from data.preprocessing import AudioPreprocessor
+from data.nsynth import NSynthLoader
 from numpy import random
 import torch
 import torch.backends.cudnn as cudnn
@@ -92,20 +93,17 @@ if __name__ == "__main__":
 
     ########### MODEL CONFIG ############
     model_config = config["modelConfig"]
-
-
     for item, val in configOverride.items():
         model_config[item] = val
 
     ########### DATA CONFIG #############
-    data_config  = config.get("dataConfig", {})
     for item, val in configOverride.items():
         data_config[item] = val
 
     exp_name = config.get("name", "default")
-    checkPointDir = data_config["output_path"]
+    checkPointDir = config["output_path"]
     checkPointDir = mkdir_in_path(checkPointDir, exp_name)
-    data_config["output_path"] = checkPointDir
+    # config["output_path"] = checkPointDir
 
     # LOAD CHECKPOINT
     print("Search and load last checkpoint")
@@ -114,7 +112,14 @@ if __name__ == "__main__":
 
     # CONFIG DATA MANAGER
     print("Data manager configuration")
-    data_manager = AudioDataManager(**data_config)
+    data_manager = AudioPreprocessor(**config['transformConfig'])
+
+    data_loader = NSynthLoader(dbname=f"NSynth_{data_manager.transform}",
+                               output_path=checkPointDir,
+                               preprocessing=data_manager.get_preprocessor(),
+                               **config['loaderConfig'])
+
+    print(f"Loading data. Found {len(data_loader)} instances")
     model_config['output_shape'] = data_manager.get_output_shape()
     config["modelConfig"] = model_config
 
@@ -123,10 +128,9 @@ if __name__ == "__main__":
 
     GANTrainer = ProgressiveGANTrainer(
                                modelLabel=exp_name,
-                               pathdb=data_config["output_path"],
+                               pathdb=config["output_path"],
                                useGPU=GPU_is_available(),
-                               dataManager=data_manager,
-                               dataConfig=data_config,
+                               dataLoader=data_loader,
                                lossIter=baseArgs.lossIter,
                                checkPointDir=checkPointDir,
                                saveIter= baseArgs.saveIter,
