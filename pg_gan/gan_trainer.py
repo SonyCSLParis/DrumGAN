@@ -19,11 +19,10 @@ class GANTrainer():
     """
 
     def __init__(self,
-                 pathdb,
                  useGPU=True,
                  visualisation=None,
                  audioRender=None,
-                 dataManager=None,
+                 dataLoader=None,
                  dataConfig=None,
                  lossIterEvaluation=5000,
                  lossPlot=5000,
@@ -68,9 +67,6 @@ class GANTrainer():
         """
 
         # Parameters
-        # Training dataset
-        self.path_db = pathdb
-
         if config is None:
             config = {}
 
@@ -104,14 +100,15 @@ class GANTrainer():
         self.imagefolderDataset = imagefolderDataset
         self.modelConfig.attribKeysOrder = None
 
-        self.dataManager = dataManager
+        self.dataLoader = dataLoader
+
         self.dataConfig = dataConfig
 
         self.startScale = self.modelConfig.startScale
 
         # CONDITIONAL GAN
         if not ignoreAttribs:
-            self.modelConfig.attribKeysOrder = self.dataManager.loader.getKeyOrders()
+            self.modelConfig.attribKeysOrder = self.dataLoader.getKeyOrders()
             print("AC-GAN classes : ")
             print(self.modelConfig.attribKeysOrder)
             print("")
@@ -339,7 +336,7 @@ class GANTrainer():
                                            batch_size=bsize,
                                            shuffle=True,
                                            pin_memory=True,
-                                           num_workers=self.dataConfig.get("num_workers", 0))
+                                           num_workers=getattr(self, "num_workers", 0))
 
     def getDataset(self):
         raise NotImplementedError

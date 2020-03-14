@@ -6,26 +6,13 @@ import torch.nn.functional as F
 from .pgan_config import _C
 from .progressive_gan import ProgressiveGAN
 from .gan_trainer import GANTrainer
-from utils.utils import getMinOccurence, mkdir_in_path
+from utils.utils import getMinOccurence, mkdir_in_path, ResizeWrapper
 from tqdm import trange
 
 from time import time
 import numpy as np
 
 import traceback
-from torch.nn.functional import interpolate
-
-class ResizeWrapper():
-    def __init__(self, new_size):
-        self.size = new_size
-    def __call__(self, image):
-        assert np.argmax(self.size) == np.argmax(image.shape[-2:]), \
-            f"Resize dimensions mismatch, Target shape {self.size} \
-                != image shape {image.shape}"
-        if type(image) is not np.ndarray:
-            image = image.numpy()
-        out = interpolate(torch.from_numpy(image).unsqueeze(0), size=self.size).squeeze(0)
-        return out
 
 
 class ProgressiveGANTrainer(GANTrainer):
@@ -39,7 +26,6 @@ class ProgressiveGANTrainer(GANTrainer):
         return ProgressiveGANTrainer._defaultConfig
 
     def __init__(self,
-                 pathdb,
                  miniBatchScheduler=None,
                  datasetProfile=None,
                  configScheduler=None,
@@ -84,7 +70,7 @@ class ProgressiveGANTrainer(GANTrainer):
 
         self.postprocessors = []
 
-        GANTrainer.__init__(self, pathdb, **kwargs)
+        GANTrainer.__init__(self, **kwargs)
 
 
     def initScaleShapes(self):
@@ -211,7 +197,6 @@ class ProgressiveGANTrainer(GANTrainer):
     def updateDatasetForScale(self, scale):
         self.modelConfig.miniBatchSize = \
             getMinOccurence(self.miniBatchScheduler, scale, self.modelConfig.miniBatchSize)
-        self.path_db = getMinOccurence(self.datasetProfile, scale, self.path_db)
 
         # Scale scheduler
         if self.configScheduler is not None and scale in self.configScheduler:
@@ -334,7 +319,6 @@ class ProgressiveGANTrainer(GANTrainer):
 
     def getDataset(self, scale, size=None):
         resize = ResizeWrapper(self.outputShapes[scale])
-        self.loader = self.dataManager.get_loader()
-        self.loader.set_transform(resize)
-        return self.loader
+        self.dataLoader.set_transform(resize)
+        return self.dataLoader
 
