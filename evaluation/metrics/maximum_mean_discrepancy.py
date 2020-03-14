@@ -10,7 +10,7 @@ def compute_kernel(x, y, k):
     distances = (xx - yy).pow(2).sum(2)
     return k(distances)
 
-def mmd(z_tilde, z):
+def mmd(z_tilde, z, kernel='imq'):
     # gaussian
     def gaussian(d, var=16.):
         return torch.exp(- d / var).sum(1).sum(0)
@@ -23,9 +23,14 @@ def mmd(z_tilde, z):
         :return:
         """
         return (var / (var + d)).sum(1).sum(0)
+    if kernel == 'imq':
 
-    k = inverse_multiquadratics
-    # k = gaussian
+        k = inverse_multiquadratics
+    elif kernel == 'gaussian':
+        k = gaussian
+    else:
+        raise AttributeError(f'Kernel type {kernel} not understood. Available: [gaussian, imq]')
+
     batch_size = z_tilde.size(0)
     zz_ker = compute_kernel(z, z, k)
     z_tilde_z_tilde_ker = compute_kernel(z_tilde, z_tilde, k)

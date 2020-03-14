@@ -4,18 +4,11 @@ import torch.nn.functional as F
 import subprocess
 import csv
 
-from .eval_utils import *
-from ..utils.utils import GPU_is_available
-from ..eval.train_inception_model import SpectrogramInception3
-from ..datasets.datamanager import AudioDataManager
-from ..metrics.inception_score import InceptionScore
-from ..audio_processing import Compose
-from audio.tools import saveAudioBatch
-from tools import list_files_abs_path, mkdir_in_path, checkexists_mkdir
+from utils.utils import GPU_is_available
+from utils.utils import list_files_abs_path, mkdir_in_path, checkexists_mkdir
 from tqdm import trange, tqdm
-from random import shuffle
 
-import ipdb
+from datetime import datetime
 
 
 def test(parser, visualisation=None):
@@ -27,13 +20,11 @@ def test(parser, visualisation=None):
         device = 'cpu'
 
 
-    true_files = list(list_files_abs_path(args.true_path, 'wav'))
-    fake_files = list(list_files_abs_path(args.fake_path, 'wav'))
-    ipdb.set_trace()
-    output_path = args.dir
-    # checkexists_mkdir(output_path)  
-    # output_path = mkdir_in_path(output_path, "FAD")
-    # output_path = mkdir_in_path(output_path, model_name)
+    true_files = list_files_abs_path(args.true_path, 'wav')
+    fake_files = list_files_abs_path(args.fake_path, 'wav')
+    output_path = args.dir 
+    output_path = mkdir_in_path(output_path, "evaluation_metrics")
+    output_path = mkdir_in_path(output_path, "fad")
 
     ###################### COMPUTE FAD ON REAL DATA ######################
     print("Computing FAD on true data...\nYou can skip this with ctrl+c")
@@ -48,13 +39,12 @@ def test(parser, visualisation=None):
             for file_path in fake_files:
                 f.write(file_path + '\n')
 
-        fad = subprocess.check_output(["sh",
+        fad = float(subprocess.check_output(["sh",
                             "shell_scripts/run_fad_eval.sh",
                             "--real-path="+real_paths_csv,
                             "--fake-path="+fake_paths_csv,
-                            "--model-root-path="+output_path]).decode()[-10:-1]
-        fad = float(fad)
-        with open(f"{output_path}/fad_real-real_{len(true_files)}.txt", "w") as f:
+                            "--model-root-path="+output_path]).decode()[-10:-1])
+        with open(f"{output_path}/fad_{len(true_files)}_{datetime.now().strftime('%y_%m_%d')}.txt", "w") as f:
             f.write(str(fad))
             f.close()
 

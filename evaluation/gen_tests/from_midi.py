@@ -4,11 +4,13 @@ from datetime import datetime
 
 from .generation_tests import *
 
-from utils.utils import mkdir_in_path, get_dummy_nsynth_loader, load_model_checkp, saveAudioBatch
+from utils.utils import mkdir_in_path, load_model_checkp, saveAudioBatch
 from .generation_tests import StyleGEvaluationManager
+from data.preprocessing import AudioPreprocessor
 from tqdm import trange
 from mido import MidiFile
 from librosa.output import write_wav
+
 
 def interpolate_batch(x, y, steps):
     alpha = 0
@@ -27,8 +29,7 @@ def generate(parser):
     batch_size = kwargs.get('batch_size', 50)
 
     # We load a dummy data loader for post-processing
-    dummy_loader = get_dummy_nsynth_loader(config, nsynth_path=args.nsynth_path)
-    postprocess = dummy_loader.get_post_processor()
+    model_postpro = AudioPreprocessor(**config['transformConfig']).get_postprocessor()
 
     # Create output evaluation dir
     output_dir = mkdir_in_path(args.dir, f"generation_tests")
@@ -37,14 +38,15 @@ def generate(parser):
     output_dir = mkdir_in_path(output_dir, datetime.now().strftime('%Y-%m-%d %H:%M'))
     
     
-    overlap_index = int(dummy_loader.loader.audio_length*overlap)
-    model_postpro = dummy_loader.get_post_processor()
+    overlap_index = int(config['transformConfig']['audio_length']*overlap)
+
     print("Loading MIDI file")
     
     midi_file = MidiFile(args.midi)
     midi_name = os.path.basename(args.midi).split('.')[0]
     pitch_list = []
-    pitch_cls_list = dummy_loader.loader.att_dict_list["pitch"]
+    pitch_range = config['loaderConfig']['pitch_range']
+    pitch_cls_list = list(range(pitch_range[0], pitch_range[1] + 1))
     
     for i, track in enumerate(midi_file.tracks):
         for msg in track:

@@ -1,23 +1,20 @@
 from torch import nn
-from ..datasets.datamanager import AudioDataManager
+from data.preprocessing import AudioPreprocessor
 from tqdm import tqdm, trange
-from tools import mkdir_in_path
+from utils.utils import mkdir_in_path, GPU_is_available
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
-import ipdb
 import torch
-from os.path import dirname, realpath, join
-import argparse
-from datetime import datetime
-from ..utils.utils import GPU_is_available
-from sklearn.metrics import confusion_matrix, classification_report
 
+from os.path import dirname, realpath, join
+
+from datetime import datetime
+
+from sklearn.metrics import confusion_matrix, classification_report
 from torchvision.models.inception import BasicConv2d, InceptionA, InceptionC, \
     InceptionE, InceptionB, InceptionAux, InceptionD
 
-from audiolazy.lazy_midi import midi2str, midi2freq
 from datetime import datetime
-from ..audio_processing import ResizeWrapper
 
 
 class SpectrogramInception3(nn.Module):
@@ -65,7 +62,6 @@ class SpectrogramInception3(nn.Module):
             x[:, 0] = x[:, 0] * (0.229 / 0.5) + (0.485 - 0.5) / 0.5
             x[:, 1] = x[:, 1] * (0.224 / 0.5) + (0.456 - 0.5) / 0.5
         # 299 x 299 x 1
-        # ipdb.set_trace()
         x = self.Conv2d_1a_3x3(x)
         # 149 x 149 x 32
         x = self.Conv2d_2a_3x3(x)
@@ -142,26 +138,26 @@ def train_inception_model(output_file,
     path_to_raw = "/home/javier/developer/datasets/nsynth-train/audio"
     att_dict_path = "/home/javier/developer/datasets/nsynth-train/examples.json"
     # path_to_raw = "/ldaphome/jnistal/data/nsynth-train/audio/"
-    data_manager = AudioDataManager(data_path=path_to_raw,
-                                    output_path=path_out,
-                                    dbname='nsynth',
-                                    sample_rate=16000,
-                                    audio_len=16000,
-                                    data_type='audio',
-                                    transform='specgrams',
-                                    db_size=dbsize,
-                                    labels=labels,
-                                    transformConfig=dict(
-                                        n_frames=64,
-                                        n_bins=128,
-                                        fade_out=True,
-                                        fft_size=1024,
-                                        win_size=1024,
-                                        hop_size=256,
-                                        n_mel=256
-                                    ),
-                                    load_metadata=True,
-                                    loaderConfig=dict(
+    data_manager = AudioPreprocessor(data_path=path_to_raw,
+                                     output_path=path_out,
+                                     dbname='nsynth',
+                                     sample_rate=16000,
+                                     audio_len=16000,
+                                     data_type='audio',
+                                     transform='specgrams',
+                                     db_size=dbsize,
+                                     labels=labels,
+                                     transformConfig=dict(
+                                         n_frames=64,
+                                         n_bins=128,
+                                         fade_out=True,
+                                         fft_size=1024,
+                                         win_size=1024,
+                                         hop_size=256,
+                                         n_mel=256
+                                     ),
+                                     load_metadata=True,
+                                     loaderConfig=dict(
                                                       size=dbsize,
                                                       instrument_labels=labels,
                                                       pitch_range=[44, 70],
