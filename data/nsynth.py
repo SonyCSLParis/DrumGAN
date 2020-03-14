@@ -3,7 +3,7 @@ import os.path
 import dill
 import torch.utils.data as data
 import torch
-from utils.utils import checkexists_mkdir, mkdir_in_path, read_json, read_json, filter_keys_in_strings, list_files_abs_path, get_filename
+from utils.utils import mkdir_in_path, read_json, filter_keys_in_strings, list_files_abs_path, get_filename
 
 import numpy as np
 
@@ -356,8 +356,6 @@ class NSynthLoader(AudioDataLoader):
             if attribName not in self.att_dict_list:
                 self.att_dict_list[attribName] = set()
             self.att_dict_list[attribName].add(attribVal)
-
-        # Filter the attrib list
         
         return atts
 
@@ -383,13 +381,6 @@ class NSynthLoader(AudioDataLoader):
             self.shiftAttribVal[attribName] = {
                 name: c for c, name in enumerate(attribVals)}
 
-    # def get_att_class_list(self):
-    #     self.att_classes = []
-
-    #     for k, vals in self.att_dict_list.items():
-    #         if len(vals) == 1: continue
-    #         self.att_classes.append([self.ATT_DICT[k][v] for v in vals])
-
     def index_to_labels(self, idx_batch):
         output_labels = []
         for item_idx in idx_batch:
@@ -408,169 +399,3 @@ class NSynthLoader(AudioDataLoader):
 
     def label_to_source(self, label):
         return self.src_list[int(label)]
-
-    # def label_to_pitch(self, label):
-    #     return midi2str(label)
-
-
-class SineWaveLoader(AudioDataLoader):
-    def __init__(self,
-                 freqs=[100],
-                 randPh=True,
-                 **kargs):
-        freqs.sort()
-        self.freqs = freqs
-        self.randPh = randPh
-        db_name = kargs.pop('db_name', 'sinewave_f')
-        for f in self.freqs:
-            db_name += f"_{f}"
-
-        self.att_dict_list = freqs
-        data_path = kargs.pop('data_path')
-        mkdir_in_path("/tmp", "sinewaves")
-        data_path = "/tmp/sinewaves/"
-        print(f"Loading SineWaveLoader: {db_name}")
-        AudioDataLoader.__init__(self,
-                                 data_path=data_path,
-                                 db_name=db_name,
-                                 **kargs)
-
-    def _gen_sinewave(self, f, ampl=1, ph=0):
-        assert self.sample_rate >= 2*f, \
-            "Frequency not allowed"
-        return ((ampl * np.sin(
-            2*np.pi * np.arange(self.audio_length)*f/self.sample_rate + ph
-        )).astype(np.float32)).reshape((1, -1))
-
-    def load_data(self):
-        from librosa.output import write_wav
-        for i in range(self.size):
-            freq_idx = np.random.randint(len(self.freqs))
-            f = self.freqs[freq_idx]
-            if self.randPh:
-                ph = np.random.uniform(-np.pi, np.pi)
-            else:
-                ph=0
-
-            filename = f'/tmp/sinewaves/sinusoid_{str(i)}_f{str(f)}_sr{str(self.sample_rate)}.{self.format}'
-            sinewave = np.array(self._gen_sinewave(f=f, ph=ph))
-            self.data.append(filename)
-            self.metadata.append(freq_idx)
-
-            write_wav(filename, sinewave.reshape(-1,), self.sample_rate)
-    
-    def getKeyOrders(self):
-        return dict(pitch=dict(order=0, values=self.freqs))
-
-    def index_to_labels(self, index_batch):
-        labels_list = []
-        for ib in index_batch:
-            for idx in ib:
-                labels_list.append(str(self.freqs[idx]))
-        return np.array(labels_list)
-
-    def __getitem__(self, index):
-        return self.transform(self.data[index]), torch.LongTensor([self.metadata[index]])
-
-class PianosYoutube(AudioDataLoader):
-    def __init__(self, path_out, **kargs):
-        db_name = kargs.pop('db_name', 'youtube-pianos')
-        path_to_raw = kargs.pop('path_to_raw', None)
-        
-        assert os.path.exists(path_to_raw), \
-            "Path to raw audio does not exist"
-        AudioDataLoader.__init__(self, 
-                                 path_to_raw=path_to_raw, 
-                                 path_out=path_out, 
-                                 db_name=db_name, 
-                                 **kargs)
-
-    def _dumpDataset(self):
-        """Download the yesno data if it doesn't exist in processed_folder already."""
-        print('Processing...')
-        audios = [x for x in os.listdir(self.path_to_raw) if self.format in x]
-        print(f'Loading PianosYoutube: found {len(audios)} files in {self.format} format')
-        for i, audio in enumerate(audios):
-            if i == self.db_size: break
-
-            audio_path = os.path.join(self.path_to_raw, audio)
-            sig, sr = torchaudio.load(audio_path)
-            sig = sig.contiguous()
-            sig = sig.reshape((1, -1))
-            sig = torch.FloatTensor(sig)
-
-            self.data.append(sig)
-            
-        output_processed_path = os.path.join(self.path_out, self.processedDir)
-        if not os.path.exists(output_processed_path): os.mkdir(output_processed_path)
-        self._save_torch_file()
-        print("done!")
-
-class DrumsLoader(AudioDataLoader):
-    ATT_LIST = [
-        "duration",
-        "loudness",
-        "temporal_centroid",
-        "log_attack_time",
-        "hardness",
-        "depth",
-        "brightness",
-        "roughness",        
-        "warmth",
-        "sharpness",
-        "boominess"
-    ]
-    def __init__(self, **kargs):
-        self.ATT_LIST.sort()
-        self.att_dict_list = {}
-        for att in self.ATT_LIST:
-            self.att_dict_list[att] = ['0', '1', '2', '3', '4']
-        self.att_classes = list(self.att_dict_list.values())
-        AudioDataLoader.__init__(self, **kargs)
-
-    def load_data(self):
-        files = list_files_abs_path(self.data_path, 'wav')
-        for file_path in files:
-            file_att_path = f"{os.path.dirname(file_path)}/analysis/{get_filename(file_path)}_analysis.json"
-            file_att_dict = read_json(file_att_path)
-
-            file_metadata = []
-
-            if any([att not in file_att_dict.keys() for att in self.ATT_LIST]):
-                print(f"File {file_path} not completely annotated. Skipping...")
-                continue
-            for att in self.ATT_LIST:
-                val = file_att_dict[att]
-                if type(val) is bool:
-                    file_metadata.append(1. if val else 0.)
-                else:
-                    file_metadata.append(val)
-            if any(np.isnan(file_metadata)):
-                print(f"File {file_path} contains nan values. Skipping...")
-                continue
-            self.metadata.append(file_metadata)
-            self.data.append(file_path)
-            if len(self.data) == self.size: break
-        self.normalize_metadata()
-
-    def getKeyOrders(self):
-        return {att: {"order": i, "values": self.att_dict_list[att]} for i, att in enumerate(self.ATT_LIST)}
-
-    def normalize_metadata(self):
-        self.metadata = np.array(self.metadata)
-        _max = np.max(self.metadata, axis=0)
-        _min = np.min(self.metadata, axis=0)
-        self.metadata = (self.metadata - _min) / (_max - _min)
-        self.metadata = (self.metadata / 0.25).round().astype(int)
-
-    def index_to_labels(self, index_batch):
-        if type(index_batch) is np.ndarray:
-            return index_batch.astype(str)
-        return index_batch.numpy().astype(str)
-
-    def __getitem__(self, index):
-
-        if self.transform is None:
-            return self.data[index], torch.LongTensor(self.metadata[index])
-        else:
-            return self.transform(self.data[index]), torch.LongTensor(self.metadata[index])

@@ -1,7 +1,5 @@
 import torch
 
-from .nsynth_loader import NSynthLoader
-
 from .audio_transforms import complex_to_lin, lin_to_complex, \
     RemoveDC, Compose, safe_log, mag_to_complex, \
     AddDC, safe_exp, safe_log_spec, safe_exp_spec, mag_phase_angle, norm_audio, fold_cqt, unfold_cqt, fade_out, \
@@ -17,7 +15,7 @@ import librosa
 # TO-DO: add function to get the output of the pipelin
 # on intermediate positions
 
-class DataManager(object):
+class DataPreprocessor(object):
     """
         This class manages all datasets and given
         the config for each of them it returns
@@ -28,14 +26,9 @@ class DataManager(object):
     AUDIO_TRANSFORMS = ["waveform", "stft", "mel", "cqt", "cq_nsgt", "specgrams", "mfcc"]
 
     def __init__(self,
-                 data_path, 
-                 output_path,
-                 data_type='audio',
-                 dbname='nsynth',
-                 transformConfig=None,
                  transform=None,
                  preprocess=False,
-                 **kargs):
+                 **kwargs):
         """
             Creates a data manager
 
@@ -43,43 +36,39 @@ class DataManager(object):
 
         """
 
-        self.dbname = dbname
         self.pre_pipeline = []
         self.post_pipeline = []
-        self.set_atts(**transformConfig)
+        self.set_atts(**kwargs)
         self.init_transform_pipeline(transform)
-        self.loader = NSynthLoader
-        self.data_path = data_path
-        self.output_path = output_path
 
-
-    def set_atts(self, **kargs):
-        for k, v in kargs.items():
+    def set_atts(self, **kwargs):
+        for k, v in kwargs.items():
             setattr(self, k, v)
+
     def init_transform_pipeline(self, transform):
         raise NotImplementedError
 
+    def get_preprocessor(self, compose=True):
+        if not compose: return self.pre_pipeline
+        return Compose(self.pre_pipeline)
 
-class AudioDataManager(DataManager):
+    def get_postprocessor(self, compose=True):
+        if not compose: return self.post_pipeline
+        return Compose(self.post_pipeline)
+
+
+
+class AudioPreprocessor(DataPreprocessor):
     def __init__(self,
-                 loaderConfig,
                  sample_rate=16000,
                  audio_length=16000,
                  transform='waveform',
                  **kargs):
         self.audio_length = audio_length
         self.sample_rate = sample_rate
-        DataManager.__init__(self, transform=transform, **kargs)
+        DataPreprocessor.__init__(self, transform=transform, **kargs)
 
-        self.loader = self.loader(dbname=f"{self.dbname}_{transform}",
-                                            data_path=self.data_path,
-                                            output_path=self.output_path,
-                                            transform=None,
-                                            preprocessing=Compose(self.pre_pipeline),
-                                            audio_length=self.audio_length,
-                                            **loaderConfig)
 
-        print(f"Loading data. Found {len(self.loader)} instances")
     
 
     def set_per_batch_transform(self, transform):
@@ -396,13 +385,6 @@ class AudioDataManager(DataManager):
 
     def get_output_shape(self):
         return list(self.output_shape)
-
-    def get_loader(self):
-        return self.loader
-
-    def _updateOpts(self, **new_opts):
-        for item, val in new_opts.items():
-            self.loaderOpts[item] = val
 
     def get_post_processor(self, insert_transform=None):
         if insert_transform is None:
