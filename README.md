@@ -1,4 +1,4 @@
-# Comparing Representations for Audio Synthesis using GANs
+# AUDIO GAN LIB
 This repo contains code for comparing audio representations on the task of audio synthesis with Generative Adversarial Networks (GAN). Some of the codes are borrowed from [Facebook's GAN zoo repo](https://github.com/facebookresearch/pytorch_GAN_zoo).
 # Install
 1) Install requirements:
@@ -14,8 +14,12 @@ We use a subset of the [Nsynth datasaet](https://magenta.tensorflow.org/datasets
 # Training a new model
 Train a new model from the module's root folder by executing:
 ```
-python train.py -c <path-to-configuration-file>
+python train.py $ARCH -c $PATH/TO/CONFIG/FILE
 ```
+Available architectures:
+* Available soon: [DCGAN]()
+* [PGAN](https://arxiv.org/abs/1710.10196)
+* [StyleGAN](https://arxiv.org/abs/1812.04948)
 ## Example of config file:
 The experiments are defined in a configuration file with JSON format.
 ```
