@@ -11,7 +11,6 @@ def generate(parser):
     args = parser.parse_args()
 
     model, config, model_name = load_model_checkp(**vars(args))
-    latentDim = model.config.categoryVectorDim_G
 
     # We load a dummy data loader for post-processing
     postprocess = AudioPreprocessor(**config['transformConfig']).get_postprocessor()

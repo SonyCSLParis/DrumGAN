@@ -1,14 +1,10 @@
-import torch
-
 from .audio_transforms import complex_to_lin, lin_to_complex, \
-    RemoveDC, Compose, safe_log, mag_to_complex, \
-    AddDC, safe_exp, safe_log_spec, safe_exp_spec, mag_phase_angle, norm_audio, fold_cqt, unfold_cqt, fade_out, \
-    instantaneous_freq, inv_instantanteous_freq, instantaneous_freq
+    RemoveDC, Compose, mag_to_complex, AddDC, safe_log_spec, \
+    safe_exp_spec, mag_phase_angle, norm_audio, fold_cqt, \
+    unfold_cqt, fade_out, instantaneous_freq, inv_instantanteous_freq
 
 from nsgt import NSGT, LogScale, LinScale, MelScale, OctScale
-from librosa.core import magphase
 import numpy as np
-from torch.nn.modules.padding import ConstantPad2d
 import librosa
 
 
@@ -23,7 +19,8 @@ class DataPreprocessor(object):
         the pre-processing transforms.
     """
     # define available audio transforms
-    AUDIO_TRANSFORMS = ["waveform", "stft", "mel", "cqt", "cq_nsgt", "specgrams", "mfcc"]
+    AUDIO_TRANSFORMS = \
+        ["waveform", "stft", "mel", "cqt", "cq_nsgt", "specgrams", "mfcc"]
 
     def __init__(self,
                  transform=None,
@@ -41,6 +38,8 @@ class DataPreprocessor(object):
         self.set_atts(**kwargs)
         self.init_transform_pipeline(transform)
 
+    def __call__(self, x):
+        return self.get_preprocessor()(x)
     def set_atts(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -49,16 +48,17 @@ class DataPreprocessor(object):
         raise NotImplementedError
 
     def get_preprocessor(self, compose=True):
-        if not compose: return self.pre_pipeline
+        if not compose:
+            return self.pre_pipeline
         return Compose(self.pre_pipeline)
 
     def get_postprocessor(self, compose=True):
-        if not compose: return self.post_pipeline
+        if not compose:
+            return self.post_pipeline
         return Compose(self.post_pipeline)
 
 
-
-class AudioPreprocessor(DataPreprocessor):
+class AudioProcessor(DataPreprocessor):
     def __init__(self,
                  sample_rate=16000,
                  audio_length=16000,
@@ -67,9 +67,6 @@ class AudioPreprocessor(DataPreprocessor):
         self.audio_length = audio_length
         self.sample_rate = sample_rate
         DataPreprocessor.__init__(self, transform=transform, **kargs)
-
-
-    
 
     def set_per_batch_transform(self, transform):
         self.loader.set_transform(transform)
@@ -81,14 +78,12 @@ class AudioPreprocessor(DataPreprocessor):
             Args:
                 transform (str): name of the transformation
         """
-
         # Domain specific transforms
         assert transform in self.AUDIO_TRANSFORMS, \
             f"Transform '{transform}' not in {self.AUDIO_TRANSFORMS}"
-        
         print(f"Configurign {transform} transform...")
         self.transform = transform
-        {   
+        {
             "waveform":  self.build_waveform_pipeline,
             "stft":      self.build_stft_pipeline,
             "specgrams": self.build_specgrams_pipeline,
@@ -98,7 +93,7 @@ class AudioPreprocessor(DataPreprocessor):
             "mfcc":      self.build_mfcc_pipeline
         }[self.transform]()
 
-    def build_waveform_pipeline(self): 
+    def build_waveform_pipeline(self):
         self._add_audio_loader()
         self._add_signal_zeropadding()
         self._add_fade_out()
@@ -107,6 +102,7 @@ class AudioPreprocessor(DataPreprocessor):
 
         def in_reshape(x):
             return x.reshape(self.audio_length)
+
         def out_reshape(x):
             return x.reshape(self.output_shape)
 
@@ -135,37 +131,39 @@ class AudioPreprocessor(DataPreprocessor):
         self._add_rm_dc()
         self._add_log_mag()
         self._add_ifreq()
-        # TO-DO: add rm magnitude
         self.output_shape = (2, self.n_bins, self.n_frames)
 
     def build_mel_pipeline(self):
         def mel(x):
             return librosa.feature.melspectrogram(
-                x.reshape(-1), 
+                x.reshape(-1),
                 sr=self.sample_rate,
                 n_fft=getattr(self, 'fft_size', 2048),
                 hop_length=self.hop_size,
                 win_length=getattr(self, 'win_size', 1024),
                 n_mels=getattr(self, 'n_mels', 128)
             )
+
         def imel(x):
             return librosa.feature.inverse.mel_to_audio(
                 x.squeeze(0),
                 sr=self.sample_rate,
                 n_iter=getattr(self, 'gl_n_iter', 100),
-                n_fft=getattr(self, 'fft_size', 2048), 
+                n_fft=getattr(self, 'fft_size', 2048),
                 hop_length=self.hop_size,
                 win_length=getattr(self, 'win_size', 1024))
+
         def reshape(x):
             return x.reshape(self.output_shape)
+
         def to_numpy(x):
             if type(x) == np.ndarray:
                 return x
             return x.numpy()
 
         self._init_stft_params()
-        
-        self.output_shape = (1, getattr(self, 'n_mels', 128), self.n_frames) 
+
+        self.output_shape = (1, getattr(self, 'n_mels', 128), self.n_frames)
 
         self._add_audio_loader()
         self._add_signal_zeropadding()
@@ -178,11 +176,11 @@ class AudioPreprocessor(DataPreprocessor):
 
         # self._add_log_mag()
         self.post_pipeline.insert(0, to_numpy)
-        
 
     def build_mfcc_pipeline(self):
         def reshape(x):
             return x.reshape(self.output_shape)
+
         def to_numpy(x):
             if type(x) == np.ndarray:
                 return x
@@ -193,21 +191,23 @@ class AudioPreprocessor(DataPreprocessor):
         self._add_signal_zeropadding()
         self._add_fade_out()
         self._add_norm()
-        mfcc = \
-            lambda x : librosa.feature.mfcc(
-                y=x, 
+
+        def mfcc(x):
+            return librosa.feature.mfcc(
+                y=x,
                 sr=self.sample_rate,
                 n_fft=getattr(self, 'fft_size', 2048),
                 n_mels=getattr(self, 'n_mel', 128),
                 hop_length=self.hop_size,
                 win_length=getattr(self, 'win_size', 1024),
-                S=None, 
-                n_mfcc=getattr(self, 'n_mfcc', 20), 
-                dct_type=2, 
-                norm='ortho', 
+                S=None,
+                n_mfcc=getattr(self, 'n_mfcc', 20),
+                dct_type=2,
+                norm='ortho',
                 lifter=0)
-        imfcc = \
-            lambda x: librosa.feature.inverse.mfcc_to_audio(
+
+        def imfcc(x):
+            return librosa.feature.inverse.mfcc_to_audio(
                 x.squeeze(0),
                 n_mels=getattr(self, 'n_mel', 128),
                 sr=self.sample_rate,
@@ -215,34 +215,37 @@ class AudioPreprocessor(DataPreprocessor):
                 n_fft=getattr(self, 'fft_size', 2048),
                 win_length=getattr(self, 'win_size', 1024),
                 hop_length=self.hop_size,
-                dct_type=2, 
-                norm='ortho', 
+                dct_type=2,
+                norm='ortho',
                 ref=1.0)
 
         self.pre_pipeline.append(mfcc)
         self.post_pipeline.insert(0, imfcc)
-    
+
         self.output_shape = (1, getattr(self, 'n_mfcc', 128), self.n_frames)
-        
+
         self.pre_pipeline.append(reshape)
         self.post_pipeline.insert(0, reshape)
         self.post_pipeline.insert(0, to_numpy)
-        
-        
+
     def build_cqt_pipeline(self):
         def reshape(x):
             return x.reshape(self.output_shape)
 
         def cqt(x):
-            return librosa.core.cqt(x,
-                               sr=self.sample_rate,
-                               hop_length=self.hop_size,
-                               n_bins=getattr(self, 'n_cqt', 84),
-                               bins_per_octave=getattr(self, 'bins_per_octave', 12))
+            return librosa.core.cqt(
+                x,
+                sr=self.sample_rate,
+                hop_length=self.hop_size,
+                n_bins=getattr(self, 'n_cqt', 84),
+                bins_per_octave=getattr(self, 'bins_per_octave', 12))
+
         def icqt(x):
-            return librosa.core.icqt(x,
-                                     sr=self.sample_rate,
-                                     hop_length=self.hop_size)
+            return librosa.core.icqt(
+                x,
+                sr=self.sample_rate,
+                hop_length=self.hop_size)
+
         self._init_stft_params()
         self._add_audio_loader()
         self._add_signal_zeropadding()
@@ -263,32 +266,30 @@ class AudioPreprocessor(DataPreprocessor):
         print("")
         print("Configuring cqt_NSGT pipeline...")
 
-        scales  = {'log':LogScale,
-                   'lin':LinScale,
-                   'mel':MelScale,
-                   'oct':OctScale}
+        scales = {'log': LogScale,
+                  'lin': LinScale,
+                  'mel': MelScale,
+                  'oct': OctScale}
         nsgt_scale = scales[getattr(self, 'nsgt_scale', 'log')]
         nsgt_scale = nsgt_scale(getattr(self, 'fmin', 20),
                                 getattr(self, 'fmax', self.sample_rate / 2),
                                 getattr(self, 'n_bins', 96))
         nsgt = NSGT(nsgt_scale,
-                    self.sample_rate, 
-                    self.audio_length, 
-                    real=getattr(self, 'real', False), 
-                    matrixform=getattr(self, 'matrix_form', True), 
+                    self.sample_rate,
+                    self.audio_length,
+                    real=getattr(self, 'real', False),
+                    matrixform=getattr(self, 'matrix_form', True),
                     reducedform=getattr(self, 'reduced_form', False))
         self.n_bins = len(nsgt.wins)
         self.n_frames = nsgt.ncoefs
 
         self.output_shape = (2, int(self.n_bins/2), int(self.n_frames))
-        ######### TRANSFORMS #########
-        reshape = lambda x: x.reshape(-1,)
 
         self._add_audio_loader()
         self._add_signal_zeropadding()
         self._add_fade_out()
         self._add_norm()
-        self.pre_pipeline.extend([reshape, nsgt.forward])
+        self.pre_pipeline.extend([lambda x: x.reshape(-1,), nsgt.forward])
         self.post_pipeline.insert(0, nsgt.backward)
         self._add_mag_phase()
         self._add_log_mag()
@@ -298,21 +299,20 @@ class AudioPreprocessor(DataPreprocessor):
             self.pre_pipeline.append(fold_cqt)
             self.post_pipeline.insert(0, unfold_cqt)
             self.output_shape = (4, int(self.n_bins/2), int(self.n_frames))
-    
+
     def _add_audio_loader(self):
         def loader(x):
             return librosa.core.load(
-            x,
-            sr=self.sample_rate,
-            mono=True,
-            offset=0.0,
-            duration=self.audio_length / self.sample_rate,
-            dtype=np.float32,
-            res_type='kaiser_best')[0]  # We index 0 to remove the sample rate
+                x,
+                sr=self.sample_rate,
+                mono=True,
+                offset=0.0,
+                duration=self.audio_length / self.sample_rate,
+                dtype=np.float32,
+                res_type='kaiser_best')[0]
         self.pre_pipeline.append(loader)
 
     def _add_fade_out(self):
-                
         # Common transforms
         if getattr(self, 'fade_out', False):
             self.pre_pipeline.append(fade_out)
@@ -320,27 +320,28 @@ class AudioPreprocessor(DataPreprocessor):
     def _add_norm(self):
         if getattr(self, 'normalization', False):
             self.post_pipeline.insert(0, norm_audio)
+
     def _complex_to_lin(self):
-            self.pre_pipeline.append(complex_to_lin) 
-            self.post_pipeline.insert(0, lin_to_complex)
+        self.pre_pipeline.append(complex_to_lin)
+        self.post_pipeline.insert(0, lin_to_complex)
 
     def _add_signal_zeropadding(self):
         def zeropad(signal):
             if len(signal) < self.audio_length:
                 return np.append(
-                    signal, 
+                    signal,
                     np.zeros(self.audio_length - len(signal))
                 )
             else:
                 return signal
         self.pre_pipeline.append(zeropad)
 
-
     def _init_stft_params(self):
         if not hasattr(self, 'hop_size'):
             self.hop_size = int(getattr(self, 'win_size', 1024) / 2)
         if hasattr(self, 'n_frames'):
-            self.audio_length = self.n_frames * self.hop_size - 1 # we substract one so we get exactly self.n_frames 
+            # we substract one so we get exactly self.n_frames
+            self.audio_length = self.n_frames * self.hop_size - 1
 
         self.n_bins = int(getattr(self, 'fft_size', 2048) / 2)
 
@@ -351,6 +352,7 @@ class AudioPreprocessor(DataPreprocessor):
                     hop_length=getattr(self, 'hop_size', 512),
                     win_length=getattr(self, 'win_size', 1024),
                     n_fft=getattr(self, 'fft_size', 1024))
+
         def istft(x):
             return librosa.core.istft(
                     x,
@@ -361,10 +363,8 @@ class AudioPreprocessor(DataPreprocessor):
 
     def _add_mag_phase(self):
         # Add complex to mag/ph transform
-        mag_ph   = lambda x: mag_phase_angle(x)
-        i_mag_ph = lambda x: mag_to_complex(x)
-        self.pre_pipeline.append(mag_ph)
-        self.post_pipeline.insert(0 , i_mag_ph)
+        self.pre_pipeline.append(mag_phase_angle)
+        self.post_pipeline.insert(0, mag_to_complex)
 
     def _add_rm_dc(self):
         if getattr(self, 'rm_dc', True):
@@ -390,4 +390,3 @@ class AudioPreprocessor(DataPreprocessor):
         if insert_transform is None:
             return Compose(self.post_pipeline)
         return Compose([insert_transform] + self.post_pipeline)
-

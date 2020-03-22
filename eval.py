@@ -4,7 +4,8 @@ import sys
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Testing script', add_help=False)
+    parser = argparse.ArgumentParser(
+                        description='Testing script', add_help=False)
     parser.add_argument('evaluation_metric', type=str,
                         help='Name of the evaluation method to launch. To get \
                         the arguments specific to an evaluation method please \
@@ -28,7 +29,8 @@ if __name__ == "__main__":
 
     args, unknown = parser.parse_known_args()
 
-    module = importlib.import_module("evaluation.metrics." + args.evaluation_metric)
+    module = importlib.import_module(
+        "evaluation.metrics." + args.evaluation_metric)
     print("Running " + args.evaluation_metric)
 
     parser.add_argument('-h', '--help', action='help')
@@ -36,6 +38,5 @@ if __name__ == "__main__":
 
     if out is not None and not out:
         print("...FAIL")
-
     else:
         print("...OK")

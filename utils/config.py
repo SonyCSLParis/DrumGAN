@@ -10,7 +10,7 @@ class BaseConfig():
             print("cawet")
 
 
-def getConfigFromDict(obj, inputDict, defaultConfig):
+def get_config_from_dict(obj, inputDict, defaultConfig):
     r"""
     Using a new configuration dictionary and a default configuration
     setup an object with the given configuration.
@@ -38,7 +38,7 @@ def getConfigFromDict(obj, inputDict, defaultConfig):
         for member, value in vars(defaultConfig).items():
             setattr(obj, member, inputDict.get(member, value))
 
-def updateConfig(obj, ref):
+def update_config(obj, ref):
     r"""
     Update a configuration with the fields of another given configuration
     """
@@ -62,7 +62,7 @@ def str2bool(v):
         raise AttributeError('Boolean value expected.')
 
 
-def updateParserWithConfig(parser, defaultConfig):
+def update_parser_with_config(parser, defaultConfig):
 
     for name, key in vars(defaultConfig).items():
         if key is None:
@@ -81,7 +81,7 @@ def updateParserWithConfig(parser, defaultConfig):
     return parser
 
 
-def getConfigOverrideFromParser(parsedArgs, defaultConfig):
+def get_config_override_from_parser(parsedArgs, defaultConfig):
 
     output = {}
     for arg, value in parsedArgs.items():
@@ -94,7 +94,7 @@ def getConfigOverrideFromParser(parsedArgs, defaultConfig):
     return output
 
 
-def getDictFromConfig(obj, referenceConfig, printDefault=True):
+def get_dict_from_config(obj, referenceConfig, printDefault=True):
     r"""
     Retrieve all the members of obj which are also members of referenceConfig
     and dump them into a dictionnary

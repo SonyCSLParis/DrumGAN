@@ -6,6 +6,8 @@ from math import inf
 from librosa.output import write_wav
 import torch
 from torch.nn.functional import interpolate
+from numpy import random
+
 
 def checkexists_mkdir(path):
     if not os.path.exists(path):
@@ -429,44 +431,9 @@ def validate_checkpoint_data(checkp_data, checkp_dir, scale, iter, name):
         raise FileNotFoundError(
             f"No checkpoint found for model {name} at directory {checkp_dir}")
 
-
-# def get_dummy_nsynth_loader(config, nsynth_path):
-#     from data.data_manager import AudioDataManager
-
-#     data_path  = os.path.join(nsynth_path, "audio")
-#     mdata_path = os.path.join(nsynth_path, "examples.json")
-
-#     # load dymmy data_manager for post-processing
-#     data_config = config["dataConfig"]
-
-#     data_config["data_path"] = data_path
-#     data_config["output_path"] = "/tmp"
-#     data_config["loaderConfig"]["att_dict_path"] = mdata_path
-#     data_config["loaderConfig"]["size"] = 500
-#     dummy_dm = AudioDataManager(preprocess=True, **data_config)
-#     return dummy_dm
-
-
-def extract_save_rainbowgram(audio, path, name):
-
-    fig = plt.figure(figsize=(10, 5))
-    if type(audio) is torch.Tensor:
-        audio = audio.numpy().reshape(-1).astype(float)
-    audio = audio[:16000]
-    rain = wave2rain(audio, sr=16000, stride=64, log_mag=True, clip=0.1)
-    _ = rain2graph(rain)
-    plt.xlabel('time (frames)')
-    plt.ylabel('Frequency')
-    plt.savefig(f'{path}/{name}.png')
-    plt.close()
-
-    # plt.show()
-
         
 def saveAudioBatch(data, path, basename, sr=16000, overwrite=False):
     from librosa.util.utils import ParameterError
-    # outdata = resizeAudioTensor(data, orig_sr, target_sr)
-    # taudio.save(path, outdata, sample_rate=target_sr)
     try:
         for i, audio in enumerate(data):
 
@@ -494,3 +461,81 @@ class ResizeWrapper():
             image = image.numpy()
         out = interpolate(torch.from_numpy(image).unsqueeze(0), size=self.size).squeeze(0)
         return out
+
+def get_trainer(name):
+
+    match = {"PGAN": ("progressive_gan_trainer", "ProgressiveGANTrainer"),
+             "StyleGAN":("styleGAN_trainer", "StyleGANTrainer"),
+             "DCGAN": ("DCGAN_trainer", "DCGANTrainer")}
+
+    if name not in match:
+        raise AttributeError(f"Invalid module name \
+                             Available: {match.keys()}")
+
+    return loadmodule("gans." + match[name][0],
+                      match[name][1],
+                      prefix='')
+
+def get_loader(name):
+    match = {"nsynth": "NSynth",
+             "mtg-drums": "MTGDrums",
+             "youtube-pianos": "YouTubePianos",
+             "csl-drums": "CSLDrums",
+             "sinewaves": "Sinewaves"}
+
+    if name not in match:
+        raise AttributeError(f"Invalid module name. \
+                               Available: {match.keys()}")
+
+    return loadmodule("data.loaders",
+                      match[name],
+                      prefix='')
+
+
+def get_visualization_manager(name):
+    match = {"waveform": ("progressive_gan_trainer", "ProgressiveGANTrainer"),
+             "StyleGAN":("styleGAN_trainer", "StyleGANTrainer"),
+             "DCGAN": ("DCGAN_trainer", "DCGANTrainer")}
+
+    if name not in match:
+        raise AttributeError("Invalid module name")
+
+    return loadmodule("models.trainer." + match[name][0],
+                      match[name][1],
+                      prefix='')
+
+def getDataManager(dataConfig):
+    match = {"image": "ImageDataManager",
+             "audio": "AudioDataManager"}
+    name = dataConfig.get("data_type", None)
+    if name not in match:
+        raise AttributeError(f"Invalid data module name: {name}")
+    return loadmodule("models.datasets.datamanager",
+                      match[name],
+                      prefix='')
+
+
+def init_seed(rand_seed=True):
+    if not rand_seed:
+        seed = random.randint(0, 9999)
+    else:
+        seed = 0
+
+    random.seed(seed)
+    torch.manual_seed(seed)
+
+    if GPU_is_available():
+        torch.cuda.manual_seed_all(rand_seed)
+    print("Random Seed: ", rand_seed)
+    print()
+
+def load_config_file(config_path):
+    if config_path is None:
+        raise ValueError("You need to input a configuratrion file")
+    with open(config_path, 'rb') as file:
+        return json.load(file)
+
+def save_config_file(configFile, outputPath):
+    with open(outputPath, 'w') as file:
+
+        return json.dump(configFile, file, indent=4)

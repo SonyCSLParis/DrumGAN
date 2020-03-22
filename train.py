@@ -1,145 +1,139 @@
-print("Running training script...")
 import os
 import sys
 import importlib
 import argparse
-
 import time
-
-from utils.utils import getVal, getLastCheckPoint, loadmodule, GPU_is_available, checkexists_mkdir, mkdir_in_path
-from utils.config import getConfigOverrideFromParser, updateParserWithConfig
-
-from pg_gan.progressive_gan_trainer import ProgressiveGANTrainer
-from data.preprocessing import AudioPreprocessor
-from data.nsynth import NSynthLoader
-from numpy import random
+import json
 import torch
 import torch.backends.cudnn as cudnn
 
-import json
+from utils.utils import getLastCheckPoint, GPU_is_available, \
+    checkexists_mkdir, mkdir_in_path
+from utils.utils import *
+from utils.config import update_parser_with_config, get_config_override_from_parser
+from gans import ProgressiveGANTrainer
+from data.preprocessing import AudioProcessor
 
-
-def init_seed(rand_seed=True):
-    if not rand_seed:
-        seed = random.randint(0, 9999)
-    else:
-        seed = 0
-
-    random.seed(seed)
-    torch.manual_seed(seed)
-
-    if GPU_is_available():
-        torch.cuda.manual_seed_all(baseArgs.seed)
-    print("Random Seed: ", baseArgs.seed)
-    print("")
-
-def load_config_file(configPath):
-    if configPath is None:
-        raise ValueError("You need to input a configuratrion file")
-    with open(configPath, 'rb') as file:
-        return json.load(file)
-
-def save_config_file(configFile, outputPath):
-    with open(outputPath, 'w') as file:
-        return json.dump(configFile, file, indent=4)
+from datetime import datetime
 
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Testing script')
-    
-    parser.add_argument('--restart', help=' If a checkpoint is detected, do \
-                                           not try to load it',
-                        action='store_true')
+    parser = argparse.ArgumentParser(description='Deep-Audio-GenLib training script')
+    parser.add_argument('architecture', type=str, default='PGAN',
+                         help='Name of the architecture to launch, available models are\
+                         PGAN and PPGAN. To get all possible option for a model\
+                         please run train.py $MODEL_NAME')
     parser.add_argument('-n', '--name', help="Model's name",
-                        type=str, dest="name", default="default")
-    parser.add_argument('-d', '--dir', help='Output directory',
-                        type=str, dest="dir", default='output_networks')
+                        type=str, dest="name", 
+                        default=f"default_{datetime.now().strftime('%y_%m_%d')}")
+    parser.add_argument('-d', '--dataset',type=str, dest="dataset", default=f"nsynth", 
+                        help="Dataset name. Availabel: nsynth, mtg-drums, csl-drums, youtube-pianos")
+    
+    parser.add_argument('-o', '--output-path', help='Output directory',
+                        type=str, dest="output_path", default='output_networks')
     parser.add_argument('-c', '--config', help="Path to configuration file",
-                        type=str, dest="configPath")
+                        type=str, dest="config")
     parser.add_argument('-s', '--save_iter', help="If it applies, frequence at\
                         which a checkpoint should be saved. In the case of a\
                         evaluation test, iteration to work on.",
-                        type=int, dest="saveIter", default=25000)
+                        type=int, dest="save_i", default=50000)
+    parser.add_argument('-e', '--eval_iter', help="If it applies, frequence at\
+                        which evaluation is run", 
+                        type=int, dest="eval_i", default=-1)
     parser.add_argument('-l', '--loss_iter', help="If it applies, frequence at\
                         which a checkpoint should be saved. In the case of a\
                         evaluation test, iteration to work on.",
-                        type=int, dest="lossIter", default=5000)
-    parser.add_argument('--seed', action='store_true', help="Partition's value")
+                        type=int, dest="loss_i", default=5000)
+    parser.add_argument('--scale', dest="scale", default=0, 
+                        help="If checkpoints found, start at scale")
+    parser.add_argument('--iter', help="If chekpoints found, iteration at which to continue")
+    parser.add_argument('-v', '--partitionValue', help="Partition's value",
+                        type=str, dest="partition_value")
+    parser.add_argument('--seed', dest='seed', action='store_true', help="Partition's value")
     parser.add_argument('--n_samples', type=int, default=10, help="Partition's value")
-    
+    parser.add_argument('--restart', action='store_true',
+                        help=' If a checkpoint is detected, do not try to load it')
+    parser.add_argument('--visdom', action='store_true',
+                        help=' If a checkpoint is detected, do not try to load it')
+
     # Parse command line args
-    baseArgs, unknown = parser.parse_known_args()
-
+    args, unknown = parser.parse_known_args()
     # Initialize random seed
-    init_seed(baseArgs.seed)
-    
+    init_seed(args.seed)
     # Build the output directory if necessary
-    checkexists_mkdir(baseArgs.dir)
-
+    checkexists_mkdir(args.output_path)
     # Add overrides to the parser: changes to the model configuration can be
     # done via the command line
-    parser = updateParserWithConfig(parser, ProgressiveGANTrainer._defaultConfig)
+    parser = update_parser_with_config(parser, ProgressiveGANTrainer._defaultConfig)
     kwargs = vars(parser.parse_args())
-    configOverride = getConfigOverrideFromParser(kwargs, ProgressiveGANTrainer._defaultConfig)
+    config_override = get_config_override_from_parser(kwargs, ProgressiveGANTrainer._defaultConfig)
 
     if kwargs['overrides']:
         parser.print_help()
         sys.exit()
 
     # configuration file path
-    config_file_path = kwargs.get("configPath", None)
-    config = load_config_file(config_file_path)
+    config = load_config_file(args.config)
+    config['arch'] = args.architecture
 
-    ########### MODEL CONFIG ############
-    model_config = config["modelConfig"]
-    for item, val in configOverride.items():
+    # Retrieve the model we want to launch
+    print(f"Loading traines for {args.architecture}")
+    trainerModule = get_trainer(args.architecture)
+
+    # model config
+    model_config = config["model_config"]
+    for item, val in config_override.items():
         model_config[item] = val
 
-    ########### DATA CONFIG #############
-    for item, val in configOverride.items():
+    # data config
+    for item, val in config_override.items():
         data_config[item] = val
 
     exp_name = config.get("name", "default")
-    checkPointDir = config["output_path"]
-    checkPointDir = mkdir_in_path(checkPointDir, exp_name)
-    # config["output_path"] = checkPointDir
+    checkpoint_dir = config["output_path"]
+    checkpoint_dir = mkdir_in_path(checkpoint_dir, exp_name)
+    # config["output_path"] = checkpoint_dir
 
-    # LOAD CHECKPOINT
-    print("Search and load last checkpoint")
-    checkPointData = getLastCheckPoint(checkPointDir, exp_name)
-    nSamples = kwargs['n_samples']
 
-    # CONFIG DATA MANAGER
+
+    # condigure processor
     print("Data manager configuration")
-    data_manager = AudioPreprocessor(**config['transformConfig'])
+    transform_config = config['transform_config']
+    preprocessing = AudioProcessor(**transform_config)
+    # configure loader
+    loader_config = config['loader_config']
+    dbname = loader_config.pop('dbname', args.dataset)
+    loader_module = get_loader(dbname)
+    loader = loader_module(dbname=dbname + '_' + transform_config['transform'],
+                           output_path=checkpoint_dir, 
+                           preprocessing=preprocessing, 
+                           **loader_config)
+    # loader.set_preprocessing(preprocessing)
 
-    data_loader = NSynthLoader(dbname=f"NSynth_{data_manager.transform}",
-                               output_path=checkPointDir,
-                               preprocessing=data_manager.get_preprocessor(),
-                               **config['loaderConfig'])
+    print(f"Loading data. Found {len(loader)} instances")
+    model_config['output_shape'] = preprocessing.get_output_shape()
+    config["model_config"] = model_config
 
-    print(f"Loading data. Found {len(data_loader)} instances")
-    model_config['output_shape'] = data_manager.get_output_shape()
-    config["modelConfig"] = model_config
+    # save config file
+    save_config_file(config, os.path.join(checkpoint_dir, f'{exp_name}_config.json'))
 
-    # Save config file
-    save_config_file(config, os.path.join(checkPointDir, f'{exp_name}_config.json'))
+    GANTrainer = trainerModule(
+        model_name=exp_name,
+        gpu=GPU_is_available(),
+        loader=loader,
+        loss_iter=args.loss_i,
+        checkpoint_dir=checkpoint_dir,
+        save_iter=args.save_i,
+        n_samples=args.n_samples,
+        config=model_config)
 
-    GANTrainer = ProgressiveGANTrainer(
-                               modelLabel=exp_name,
-                               pathdb=config["output_path"],
-                               useGPU=GPU_is_available(),
-                               dataLoader=data_loader,
-                               lossIter=baseArgs.lossIter,
-                               checkPointDir=checkPointDir,
-                               saveIter= baseArgs.saveIter,
-                               nSamples=nSamples,
-                               config=model_config)
-
+    # load checkpoint
+    print("Search and load last checkpoint")
+    checkpoint_state = getLastCheckPoint(checkpoint_dir, exp_name)
     # If a checkpoint is found, load it
-    if not kwargs["restart"] and checkPointData is not None:
-        trainConfig, pathModel, pathTmpData = checkPointData
-        GANTrainer.loadSavedTraining(pathModel, trainConfig, pathTmpData)
+    if not args.restart and checkpoint_state is not None:
+        train_config, model_path, tmp_data_path = checkpoint_state
+        GANTrainer.load_saved_training(model_path, train_config, tmp_data_path)
 
     GANTrainer.train()

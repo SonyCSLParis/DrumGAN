@@ -36,7 +36,7 @@ The experiments are defined in a configuration file with JSON format.
     },
         
     "transformConfig": {
-		"transform": "mag-if",
+    	"transform": "mag-if",
         "fade_out": true,
         "fft_size": 1024,
         "win_size": 1024,
