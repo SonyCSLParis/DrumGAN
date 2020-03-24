@@ -86,18 +86,16 @@ if __name__ == "__main__":
     for item, val in config_override.items():
         model_config[item] = val
 
-    # data config
-    for item, val in config_override.items():
-        data_config[item] = val
+    # # data config
+    # for item, val in config_override.items():
+    #     data_config[item] = val
 
     exp_name = config.get("name", "default")
     checkpoint_dir = config["output_path"]
     checkpoint_dir = mkdir_in_path(checkpoint_dir, exp_name)
-    # config["output_path"] = checkpoint_dir
+    # config["output_shapetput_path"] = checkpoint_dir
 
-
-
-    # condigure processor
+    # configure processor
     print("Data manager configuration")
     transform_config = config['transform_config']
     preprocessing = AudioProcessor(**transform_config)
