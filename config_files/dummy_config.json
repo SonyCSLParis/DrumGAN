@@ -5,12 +5,15 @@
     "loader_config": {
         "dbname": "nsynth",
         "data_path": "/Users/javier/Developer/datasets/nsynth-train/audio/",
-        "att_dict_path": "/Users/javier/Developer/datasets/nsynth-train/examples.json",
-        "filter": ["acoustic"],
-        "instrument_labels": ["all"],
+        "attribute_file": "/Users/javier/Developer/datasets/nsynth-train/examples.json",
+        "filter_attributes": {
+            "instrument_family_str": ["flute", "bass", "guitar"],
+            "instrument_source_str": ["acoustic"]
+        },
         "shuffle": false,
-        "attribute_list": ["pitch", "instrument_family", "velocity"],
-        "pitch_range": [40, 70],
+        "attributes": ["pitch", "instrument_family_str", "velocity"],
+        "balance_att": "instrument_family_str",
+        "pitch_range": [0, 100],
         "load_metadata": true,
         "size": 1000
     },
@@ -85,10 +88,6 @@
         "dimOutput": 1,
         "weightConditionG": 10.0,
         "weightConditionD": 10.0,
-        "attribKeysOrder": {
-            "pitch": 0,
-            "instrument_family": 1
-        },
         "startScale": 0,
         "skipAttDfake": []
     }
