@@ -25,22 +25,26 @@ The experiments are defined in a configuration file with JSON format.
 ```
 {
     "name": "mag-if_test_config",
-    "comments": "dummy_configuration",
-    "output_path": "output/path",
-    "loaderConfig": {
-        "data_path": "path/to/nsynth/audio/folder",
-        "att_dict_path": "path/to/nsynth/metadata/file",
-        "filter": ["acoustic"],
-        "instrument_labels": ["brass", "mallet", "flute", "guitar"],
-        "shuffle": false,
-        "attribute_list": ["pitch"],
-        "pitch_range": [40, 70],
+    "comments": "dummy configuration",
+    "output_path": "/path/to/output/folder",
+    "loader_config": {
+        "dbname": "nsynth",
+        "data_path": "/path/to/nsynth/audio/folder",
+        "attribute_file": "/path/to/nsynth/examples.json",
+        "filter_attributes": {
+            "instrument_family_str": ["brass", "guitar", "mallet", "keyboard"],
+            "instrument_source_str": ["acoustic"]
+        },
+        "shuffle": true,
+        "attributes": ["pitch", "instrument_family_str"],
+        "balance_att": "instrument_family_str",
+        "pitch_range": [44, 70],
         "load_metadata": true,
         "size": 1000
     },
         
-    "transformConfig": {
-    	"transform": "mag-if",
+    "transform_config": {
+        "transform": "specgrams",
         "fade_out": true,
         "fft_size": 1024,
         "win_size": 1024,
@@ -51,7 +55,7 @@ The experiments are defined in a configuration file with JSON format.
         "sample_rate": 16000,
         "audio_length": 16000
     },
-    "modelConfig": {
+    "model_config": {
         "formatLayerType": "default",
         "ac_gan": true,
         "downSamplingFactor": [
@@ -61,14 +65,43 @@ The experiments are defined in a configuration file with JSON format.
             [2, 2],
             [1, 1]
         ],
-        "imagefolderDataset": true,
-        "maxIterAtScale": [50, 50, 50, 50, 50],
+        "maxIterAtScale": [
+            50,
+            50,
+            50,
+            50,
+            50
+        ],
         "alphaJumpMode": "linear",
-        "alphaNJumps": [600, 600, 600, 600, 1200],
-        "alphaSizeJumps": [32, 32, 32, 32, 32],
+        "alphaNJumps": [
+            600,
+            600,
+            600,
+            600,
+            1200
+        ],
+        "alphaSizeJumps": [
+            32,
+            32,
+            32,
+            32,
+            32
+        ],
         "transposed": false,
-        "depthScales": [5, 5, 5, 5, 5],
-        "miniBatchSize": [2, 2, 2, 2, 2],
+        "depthScales": [
+            5,
+            5,
+            5,
+            5,
+            5
+        ],
+        "miniBatchSize": [
+            2,
+            2,
+            2,
+            2,
+            2
+        ],
         "dimLatentVector": 2,
         "perChannelNormalization": true,
         "lossMode": "WGANGP",
@@ -76,11 +109,12 @@ The experiments are defined in a configuration file with JSON format.
         "leakyness": 0.02,
         "miniBatchStdDev": true,
         "baseLearningRate": 0.0006,
-        "dimOutput": 2,
+        "dimOutput": 1,
         "weightConditionG": 10.0,
         "weightConditionD": 10.0,
         "attribKeysOrder": {
-            "pitch": 0
+            "pitch": 0,
+            "instrument_family": 1
         },
         "startScale": 0,
         "skipAttDfake": []
