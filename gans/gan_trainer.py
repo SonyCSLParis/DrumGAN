@@ -104,7 +104,7 @@ class GANTrainer():
         self.startScale = self.modelConfig.startScale
 
         # CONDITIONAL GAN
-        if not ignoreAttribs:
+        if not ignoreAttribs and self.modelConfig.ac_gan:
             self.modelConfig.attribKeysOrder = self.dataLoader.getKeyOrders()
             print("AC-GAN classes : ")
             print(self.modelConfig.attribKeysOrder)
