@@ -15,7 +15,7 @@ from gans import ProgressiveGANTrainer
 from data.preprocessing import AudioProcessor
 
 from datetime import datetime
-
+from data.loaders import get_data_loader
 
 if __name__ == "__main__":
 
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     # configure loader
     loader_config = config['loader_config']
     dbname = loader_config.pop('dbname', args.dataset)
-    loader_module = get_loader(dbname)
+    loader_module = get_data_loader(dbname)
     loader = loader_module(dbname=dbname + '_' + transform_config['transform'],
                            output_path=checkpoint_dir, 
                            preprocessing=preprocessing, 
