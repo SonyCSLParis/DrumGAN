@@ -7,13 +7,14 @@
         "data_path": "/Users/javier/Developer/datasets/nsynth-train/audio/",
         "attribute_file": "/Users/javier/Developer/datasets/nsynth-train/examples.json",
         "filter_attributes": {
-            "instrument_family_str": ["flute", "bass", "guitar"],
-            "instrument_source_str": ["acoustic"]
+            "instrument_source_str": ["acoustic"],
+            "instrument_family_str": ["mallet", "flute", "vocals"]
         },
         "shuffle": false,
-        "attributes": ["pitch", "instrument_family_str", "velocity"],
-        "balance_att": "instrument_family_str",
-        "pitch_range": [0, 100],
+        "attributes": ["pitch", "velocity", "instrument_family_str"],
+        "balance_attribute": "instrument_family_str",
+        "pitch_range": [40, 70],
+        "freqs": [20, 40, 50, 100, 200, 300],
         "load_metadata": true,
         "size": 1000
     },
@@ -32,7 +33,7 @@
     },
     "model_config": {
         "formatLayerType": "default",
-        "ac_gan": true,
+        "ac_gan": false,
         "downSamplingFactor": [
             [16, 16],
             [8, 8],
@@ -86,8 +87,12 @@
         "miniBatchStdDev": true,
         "baseLearningRate": 0.0006,
         "dimOutput": 1,
-        "weightConditionG": 10.0,
-        "weightConditionD": 10.0,
+        "weightConditionG": 0.0,
+        "weightConditionD": 0.0,
+        "attribKeysOrder": {
+            "pitch": 0,
+            "instrument_family": 1
+        },
         "startScale": 0,
         "skipAttDfake": []
     }
