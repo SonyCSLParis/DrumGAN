@@ -11,7 +11,7 @@ import librosa
 # TO-DO: add function to get the output of the pipelin
 # on intermediate positions
 
-class DataPreprocessor(object):
+class DataProcessor(object):
     """
         This class manages all datasets and given
         the config for each of them it returns
@@ -23,8 +23,7 @@ class DataPreprocessor(object):
         ["waveform", "stft", "mel", "cqt", "cq_nsgt", "specgrams", "mfcc"]
 
     def __init__(self,
-                 transform=None,
-                 preprocess=False,
+                 transform="waveform",
                  **kwargs):
         """
             Creates a data manager
@@ -58,7 +57,7 @@ class DataPreprocessor(object):
         return Compose(self.post_pipeline)
 
 
-class AudioProcessor(DataPreprocessor):
+class AudioProcessor(DataProcessor):
     def __init__(self,
                  sample_rate=16000,
                  audio_length=16000,
@@ -66,10 +65,7 @@ class AudioProcessor(DataPreprocessor):
                  **kargs):
         self.audio_length = audio_length
         self.sample_rate = sample_rate
-        DataPreprocessor.__init__(self, transform=transform, **kargs)
-
-    def set_per_batch_transform(self, transform):
-        self.loader.set_transform(transform)
+        DataProcessor.__init__(self, transform=transform, **kargs)
 
     def init_transform_pipeline(self, transform):
         """

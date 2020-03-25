@@ -1,23 +1,6 @@
-import os
-# import os.path
-# import dill
-# import torch.utils.data as data
-# import torch
-# from utils.utils import mkdir_in_path, read_json, filter_keys_in_strings, list_files_abs_path, get_filename
-
-# import numpy as np
-
-# from ..db_stats import buildKeyOrder
-# from tqdm import tqdm, trange
-
-# import logging
-# from random import shuffle
-
-# from copy import deepcopy
-# # from audiolazy.lazy_midi import midi2str
-
+from utils.utils import list_files_abs_path, get_filename
 from .base_loader import AudioDataLoader
-# FORMATS = ["wav", "mp3"]
+from random import shuffle
 
 
 class YouTubePianos(AudioDataLoader):
@@ -25,6 +8,22 @@ class YouTubePianos(AudioDataLoader):
 
         AudioDataLoader.__init__(self, **kargs)
 
-    def filter_files(self, files):
-        return files[:self.size]
+    def __getitem__(self, index):
+        if self.getitem_processing:
+            return self.getitem_processing(self.data[index]), -1
+        else:
+            return self.data[index], -1
+
+    def read_data(self):
+        files = list_files_abs_path(self.data_path, self.format)
+        for file in files:
+            self.data.append(file)
+            if len(self.data) >= self.size: break
+
+    def shuffle_data(self):
+
+        shuffle(self.data)
+
+    def get_random_labels(self, batch_size):
+        return -1
     

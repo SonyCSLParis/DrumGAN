@@ -46,7 +46,7 @@ class NSynth(AudioDataLoader):
                  **kargs):
 
         assert os.path.exists(attribute_file), \
-            f"Metadata file {attribute_file} dosn't exist"
+            f"Metadata file {attribute_file} doesn't exist"
 
         self.attribute_file = attribute_file
         self.pitch_range = pitch_range
@@ -100,7 +100,6 @@ class NSynth(AudioDataLoader):
 
                 self.att_balance_count[att_val] += 1
 
-
             file_att_dict = self.add_item_to_attribute_value_dict(file_att_dict)
             self.data.append(file)
             self.metadata.append(file_att_dict)
@@ -130,22 +129,7 @@ class NSynth(AudioDataLoader):
         for item_att_dict in self.metadata:
             for att, val in item_att_dict.items():
                 self.att_count[att][np.where(np.array(self.attribute_val_dict[att]) == val)[0][0]] += 1
-        
 
-
-
-    def index_to_labels(self, idx_batch):
-        output_labels = []
-        for item_idx in idx_batch:
-            item_labels = []
-            idx = 0
-            for att_key, att_vals in self.att_dict_list.items():
-                if len(att_vals) == 1: continue
-                label = self.att_dict_list[att_key][item_idx[idx]]
-                item_labels.append(self.ATT_DICT[att_key][label])
-                idx += 1
-            output_labels.append(item_labels)
-        return np.array(output_labels)
 
     def label_to_instrument(self, label):
         return self.ATT_DICT[int(label)]

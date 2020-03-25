@@ -4,7 +4,7 @@ import dill
 import torch.utils.data as data
 import torch
 from utils.utils import mkdir_in_path, read_json, filter_keys_in_strings, list_files_abs_path, get_filename
-
+from abc import ABC, abstractmethod
 import numpy as np
 
 from ..db_stats import buildKeyOrder
@@ -22,7 +22,7 @@ FORMATS = ["wav", "mp3"]
 import ipdb
 import hashlib
 
-class DataLoader(data.Dataset):
+class DataLoader(ABC, data.Dataset):
     def __init__(self,
                  data_path,
                  output_path,
@@ -37,7 +37,8 @@ class DataLoader(data.Dataset):
                  preprocessing=None,
                  preprocess=True,
                  balance_att=None,
-                 shuffle=False):
+                 shuffle=False,
+                 **kwargs):
         data.Dataset.__init__(self)
 
         # input args
@@ -59,11 +60,9 @@ class DataLoader(data.Dataset):
         self.data = []
         self.metadata = []
         self.attributes = attributes # list of attributes 
-        self.attribute_val_dict = {} # 
+        self.attribute_val_dict = {}
         self.att_balance_count = {}
         self.attribute_count = {}
-
-        
         
         self.dbname = f'{dbname}_{self.__hash__()}'
         self.output_path = mkdir_in_path(os.path.expanduser(output_path), dbname)
@@ -106,17 +105,17 @@ class DataLoader(data.Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        item_labels = self._getitem_labels(self.metadata[index])
+        index_labels = self.label_to_index(self.metadata[index])
         if self.getitem_processing:
-            return self.getitem_processing(self.data[index]), item_labels
+            return self.getitem_processing(self.data[index]), index_labels
         else:
-            return self.data[index], item_labels
+            return self.data[index], index_labels
 
-    def _getitem_labels(self, item_dict):
+    def label_to_index(self, item_dict):
         if len(self.metadata) != 0:
             item_labels = []
-            for att_key, val_list in self.attribute_val_dict.items():
-                item_labels.append(val_list.index(item_dict[att_key]))
+            for att, vals in self.attribute_val_dict.items():
+                item_labels.append(vals.index(item_dict[att]))
             return torch.LongTensor(item_labels)
         else:
             return None
@@ -132,7 +131,6 @@ class DataLoader(data.Dataset):
             # check preprocessing is not None
             assert self.preprocessing != None, "No preprocessing was given!"
             self.preprocess_data()
-        self.train_val_split()
 
     def load_from_pt_file(self, path):
         new_obj = torch.load(path)
@@ -150,6 +148,7 @@ class DataLoader(data.Dataset):
                         tqdm(self.data, desc='preprocessing-loop')))
         print("Data preprocessing done")
 
+    @abstractmethod
     def read_data(self):
         raise NotImplementedError
 
@@ -163,6 +162,15 @@ class DataLoader(data.Dataset):
         combined_data = list(zip(self.data, self.metadata))
         shuffle(combined_data)
         self.data[:], self.metadata[:] = zip(*combined_data)
+
+    def count_attributes(self):
+        self.att_count = {}
+        for att, vals in self.attribute_val_dict.items():
+            if att not in self.att_count:
+                self.att_count[att] = [0] * len(vals)
+        for item_att_dict in self.metadata:
+            for att, val in item_att_dict.items():
+                self.att_count[att][np.where(np.array(self.attribute_val_dict[att]) == val)[0][0]] += 1
 
     def add_item_to_attribute_value_dict(self, item_atts):
         r"""
@@ -179,7 +187,7 @@ class DataLoader(data.Dataset):
             - specificAttrib (list of string): if not None, specify which
                                                attributes should be selected
         """
-        if self.attributes is None:
+        if len(self.attributes) == 0:
             atts = deepcopy(item_atts)
             self.attributes = item_atts.keys()
         else:
@@ -217,28 +225,16 @@ class DataLoader(data.Dataset):
                              self.attribute_val_order,
                              stats=None)
 
-
-    # def sort_att_dict_list(self):
-    #     for k, v in self.att_dict_list.items():
-    #         v = list(v)
-    #         v.sort()
-    #         self.att_dict_list[k] = v
-
-    # def get_att_shift_dict(self):
-    #     self.shiftAttrib = {}
-    #     self.shiftAttribVal = {}
-    #     self.skipAtts = []
-    #     self.totAttribSize = 0
-
-    #     for attribName, attribVals in self.att_dict_list.items():
-    #         if len(attribVals) == 1:
-    #             continue
-
-    #         self.shiftAttrib[attribName] = self.totAttribSize
-    #         self.totAttribSize += 1
-
-    #         self.shiftAttribVal[attribName] = {
-    #             name: c for c, name in enumerate(attribVals)}
+    def index_to_labels(self, idx_batch):
+        output_labels = []
+        for item in idx_batch:
+            item_labels = []
+            for i, att in enumerate(self.attributes):
+                if len(self.att_dict_list[att]) == 1: continue
+                label = self.att_dict_list[att][item[i]]
+                item_labels.append(label)
+            output_labels.append(item_labels)
+        return np.array(output_labels)
 
     def train_val_split(self, tr_val_split=0.8):
         assert len(self.data) > 0, "tr/val split: No loaded data yet"
@@ -270,18 +266,10 @@ class DataLoader(data.Dataset):
     def get_val_data(self):
         return torch.stack(self.val_data), torch.LongTensor(self.val_labels)
 
+
 class AudioDataLoader(DataLoader):
     def __init__(self,
-                 dbname="",
-                 audio_length=16000,
-                 sample_rate=16000,
                  _format="wav",
                  **kargs):
-
-        
-        # audio loading parameters
-        self.sample_rate = sample_rate
-        self.audio_length = audio_length
-        dbname += \
-            f"_sr_{str(self.sample_rate)}_alen_{str(self.audio_length)}"
-        DataLoader.__init__(self, dbname=dbname, _format=_format, **kargs)
+        assert _format in ['wav', 'mp3'], f"Audio format {_format} not in wav, mp3"
+        DataLoader.__init__(self, _format=_format, **kargs)

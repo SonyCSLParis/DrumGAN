@@ -7,24 +7,20 @@ from tqdm import trange
 
 class Sinewaves(AudioDataLoader):
     def __init__(self,
-                 freqs=[100],
+                 sample_rate,
+                 audio_length,
+                 freqs,
                  randPh=True,
                  **kargs):
         freqs.sort()
         self.freqs = freqs
         self.randPh = randPh
-        db_name = kargs.pop('db_name', 'sinewave_f')
-        for f in self.freqs:
-            db_name += f"_{f}"
-
-        self.att_dict_list = freqs
-        data_path = kargs.pop('data_path')
+        self.sample_rate = sample_rate
+        self.audio_length = audio_length
         mkdir_in_path("/tmp", "sinewaves")
         data_path = "/tmp/sinewaves/"
-        print(f"Loading SineWaveLoader: {db_name}")
         AudioDataLoader.__init__(self,
                                  data_path=data_path,
-                                 db_name=db_name,
                                  **kargs)
 
     def _gen_sinewave(self, f, ampl=1, ph=0):
@@ -34,7 +30,7 @@ class Sinewaves(AudioDataLoader):
             2*np.pi * np.arange(self.audio_length)*f/self.sample_rate + ph
         )).astype(np.float32)).reshape((1, -1))
 
-    def load_data(self):
+    def read_data(self):
         from librosa.output import write_wav
         for i in trange(self.size):
             freq_idx = np.random.randint(len(self.freqs))
@@ -51,6 +47,10 @@ class Sinewaves(AudioDataLoader):
 
             write_wav(filename, sinewave.reshape(-1,), self.sample_rate)
     
+
+    def get_random_labels(self, batch_size):
+        return [self.freqs[i] for i in np.random.randint(len(self.freqs), size=batch_size)]
+
     def getKeyOrders(self):
         return dict(pitch=dict(order=0, values=self.freqs))
 
@@ -62,4 +62,4 @@ class Sinewaves(AudioDataLoader):
         return np.array(labels_list)
 
     def __getitem__(self, index):
-        return self.transform(self.data[index]), torch.LongTensor([self.metadata[index]])
+        return self.getitem_processing(self.data[index]), torch.LongTensor([self.metadata[index]])
