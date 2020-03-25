@@ -41,6 +41,9 @@ class MP3ToWAV(AudioPairsLoader):
         else:
             return None
 
+    def get_random_labels(self, size):
+        pass
+
     def preprocess_data(self):
         print("Preprocessing data pairs...")
         self.data = list(map(self.preprocessing, 

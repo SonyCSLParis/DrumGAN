@@ -466,6 +466,7 @@ def get_trainer(name):
 
     match = {"PGAN": ("progressive_gan_trainer", "ProgressiveGANTrainer"),
              "StyleGAN":("styleGAN_trainer", "StyleGANTrainer"),
+             "TStyleGAN":("transform_styleGAN_trainer", "TStyleGANTrainer"),
              "DCGAN": ("DCGAN_trainer", "DCGANTrainer")}
 
     if name not in match:

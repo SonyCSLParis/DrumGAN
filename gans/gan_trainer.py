@@ -387,7 +387,6 @@ class GANTrainer():
             for inputs_real, labels in t:
                 if inputs_real.size()[0] < self.getMiniBatchSize(scale):
                     continue
-
                 # Additionnal updates inside a scale
                 inputs_real = self.inScaleUpdate(self.iter, scale, inputs_real)
                 # Optimize parameters
@@ -399,8 +398,8 @@ class GANTrainer():
                         inputs_real, inputLabels=labels, inputMasks=mask)
                 else:
                     allLosses = self.model.optimizeParameters(
-                        inputs_real, inputLabels=labels,
-                        fakeLabels=dbLoader.dataset.get_random_labels(inputs_real.size(0)))
+                        inputs_real, labels,
+                        dbLoader.dataset.get_random_labels(inputs_real.size(0)))
 
                 # Update and print losses
                 self.updateRunningLosses(allLosses)
