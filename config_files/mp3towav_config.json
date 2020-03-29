@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV4",
+    "name": "MP3_to_WAV5",
     "comments": "test",
     "output_path": "/media/oldssd/home/stefan/pycharm/audio-gan-lib/output_networks",
     "loader_config": {
@@ -27,10 +27,10 @@
         "formatLayerType": "default",
         "ac_gan": false,
         "downSamplingFactor": [
-            [16, 16],
-            [8, 8],
-            [4, 4],
-            [2, 2],
+            [1, 1],
+            [1, 1],
+            [1, 1],
+            [1, 1],
             [1, 1]
         ],
         "imagefolderDataset": true,
@@ -69,7 +69,7 @@
             20,
             20,
             20,
-            40
+            10
         ],
         "n_mlp": 4,
         "dimLatentVector": 32,

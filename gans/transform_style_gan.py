@@ -133,6 +133,8 @@ class TStyleGAN(ProgressiveGAN):
         if iter % self.plot_iter == 0:
             save_spectrogram(f"wav_spect_{iter}.png",
                              self.y.cpu().detach().numpy()[0, 0])
+            save_spectrogram(f"wav_phase_{iter}.png",
+                             self.y.cpu().detach().numpy()[0, 1])
 
         # fake data
         fake_xy = torch.cat([self.x_generator, y_fake], dim=1)
@@ -186,11 +188,11 @@ class TStyleGAN(ProgressiveGAN):
 
     def get_noise_fact(self, iter):
         mse = True
-        mse_until = 2700
+        mse_until = 0
         if iter > mse_until:
             mse = False
 
-        noise_fact = float(iter - mse_until) * 1e-8
+        noise_fact = float(iter - mse_until) #* 1e-4
         noise_fact = min(noise_fact, 1)
 
         if mse:
@@ -205,7 +207,7 @@ class TStyleGAN(ProgressiveGAN):
         if self.lossDslidingAvg < -500:
             self.config.learningRate[0] = 0.0006
         else:
-            self.config.learningRate[0] = 0.00003
+            self.config.learningRate[0] = 0.0006 #0.00003
 
         if mse:
             self.config.learningRate[0] = 0.001
@@ -221,7 +223,7 @@ class TStyleGAN(ProgressiveGAN):
         # #1 Image generation
         inputLatent, _ = self.buildNoiseData(batch_size)
 
-        inputLatent *= noise_fact
+        inputLatent *= (noise_fact * 1e-4)
 
         y_fake = self.netG(inputLatent, self.x_generator)
 
