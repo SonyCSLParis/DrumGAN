@@ -48,7 +48,7 @@ class TStyleGAN(ProgressiveGAN):
 
         self.n_mlp = n_mlp
         self.plot_iter = plot_iter
-        self.mse = True
+        self.lossDslidingAvg = -0.
         ProgressiveGAN.__init__(self, **kwargs)
         
 
@@ -104,6 +104,19 @@ class TStyleGAN(ProgressiveGAN):
         return dnet
 
     def optimizeD(self, allLosses, iter):
+        mse, noise_fact = self.get_noise_fact(iter)
+
+        if self.lossDslidingAvg < -500:
+            self.config.learningRate[1] = 0.00003
+        else:
+            self.config.learningRate[1] = 0.0006
+
+        if mse:
+            self.config.learningRate[1] = 0.
+
+        print(f"\nSlidingAvg = {self.lossDslidingAvg}")
+        print(f"LearningRateD = {self.config.learningRate[1]}")
+
         self.optimizerD = self.getOptimizerD()
 
         batch_size = self.x.size(0)
@@ -133,25 +146,12 @@ class TStyleGAN(ProgressiveGAN):
         allLosses["lossD_fake"] = lossDFake.item()
         lossD = -lossD + lossDFake
 
+        lossD *= noise_fact
+
         allLosses["Spread_R-F"] = lossD.item()
 
-        # self.lossDslidingAvg = self.lossDslidingAvg * 0.5 + (allLosses["Spread_R-F"]+500) * 0.5
-        # self.config.learningRate[1] = self.config.learningRate[1] + self.lossDslidingAvg * 1e-8
-        # self.config.learningRate[1] = max(0.00003, self.config.learningRate[1])
-        # self.config.learningRate[1] = min(0.0006, self.config.learningRate[1])
-
-        self.lossDslidingAvg = self.lossDslidingAvg * 0.5 + allLosses["Spread_R-F"] * 0.5
-        if self.lossDslidingAvg < -500:
-            self.config.learningRate[1] = 0.00003
-        else:
-            self.config.learningRate[1] = 0.0006
-
-        if self.mse:
-            self.config.learningRate[1] = 0.
-
-
-        print(f"\nSlidingAvg = {self.lossDslidingAvg}")
-        print(f"LearningRateD = {self.config.learningRate[1]}")
+        self.lossDslidingAvg = self.lossDslidingAvg * 0.5 + allLosses[
+            "Spread_R-F"] * 0.5
 
         # #3 WGAN Gradient Penalty loss
         if self.config.lambdaGP > 0:
@@ -182,12 +182,36 @@ class TStyleGAN(ProgressiveGAN):
 
         allLosses["lossD"] = lossD
 
-        return allLosses  
+        return allLosses
+
+    def get_noise_fact(self, iter):
+        mse = True
+        mse_until = 2700
+        if iter > mse_until:
+            mse = False
+
+        noise_fact = float(iter - mse_until) * 1e-8
+        noise_fact = min(noise_fact, 1)
+
+        if mse:
+            noise_fact = 0.
+
+        print(f"mse = {mse}, noise_fact = {noise_fact}")
+        return mse, noise_fact
 
     def optimizeG(self, allLosses, iter):
-        if iter > 2700:
-            self.mse = False
-            
+        mse, noise_fact = self.get_noise_fact(iter)
+
+        if self.lossDslidingAvg < -500:
+            self.config.learningRate[0] = 0.0006
+        else:
+            self.config.learningRate[0] = 0.00003
+
+        if mse:
+            self.config.learningRate[0] = 0.001
+
+        print(f"LearningRateG = {self.config.learningRate[0]}")
+
         self.optimizerG = self.getOptimizerG()
         batch_size = self.x.size(0)
         # Update the generator
@@ -197,8 +221,7 @@ class TStyleGAN(ProgressiveGAN):
         # #1 Image generation
         inputLatent, _ = self.buildNoiseData(batch_size)
 
-        if self.mse:
-            inputLatent *= 0
+        inputLatent *= noise_fact
 
         y_fake = self.netG(inputLatent, self.x_generator)
 
@@ -213,8 +236,7 @@ class TStyleGAN(ProgressiveGAN):
         # #3 GAN criterion
         lossGFake = self.lossCriterion.getCriterion(D_fake, False)
 
-        if self.mse:
-            lossGFake = -lossGFake * 0
+        lossGFake = -lossGFake * noise_fact
 
         allLosses["lossG_fake"] = lossGFake.item()
 
@@ -222,8 +244,7 @@ class TStyleGAN(ProgressiveGAN):
 
         print(f"Loss MSE = {lossMSE.item()}")
 
-        if self.mse:
-            lossGFake += lossMSE
+        lossGFake += lossMSE
 
         # Back-propagate generator losss
         lossGFake.backward()
@@ -239,15 +260,6 @@ class TStyleGAN(ProgressiveGAN):
 
         allLosses["lossG"] = lossG
 
-        if self.lossDslidingAvg < -500 and not self.mse:
-            self.config.learningRate[0] = 0.0006
-        else:
-            self.config.learningRate[0] = 0.00003
-
-        if self.mse:
-            self.config.learningRate[0] = 0.001
-
-        print(f"LearningRateG = {self.config.learningRate[0]}")
 
         # Update the moving average if relevant
         if isinstance(self.avgG, nn.DataParallel):
