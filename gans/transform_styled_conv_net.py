@@ -40,6 +40,7 @@ class TStyledGNet(StyledGNet):
                                   N(0,1) and apply He's constant at runtime
 
         """
+        self.add_gradient_map = True
         StyledGNet.__init__(self, **kargs)
 
     def initFormatLayer(self):
@@ -138,10 +139,24 @@ class TStyledGNet(StyledGNet):
         out = self.formatLayer(input_x,
                                style=style,
                                noise=torch.randn(noise_dim, device=input_z.device))
+        out = self.add_grad_map(out)
         for i, (conv, to_rgb) in enumerate(zip(self.scaleLayers, self.toRGBLayers)):
             out = conv(out, style, noise[i])
+            out = self.add_grad_map(out)
 
         return to_rgb(out)
+
+    def add_grad_map(self, x):
+        if not self.add_gradient_map:
+            return x
+        # Adds a top-down gradient map (overwrites first map of x)
+        grad = torch.linspace(0, 1, x.shape[2])
+        if torch.cuda.is_available():
+            grad = grad.cuda()
+
+        x[:, 0:1, :, :] = grad[None, None, :, None]
+        return x
+
 
     def mean_style(self, input):
         style = self.style(input).mean(0, keepdim=True)

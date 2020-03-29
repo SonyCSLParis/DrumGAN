@@ -49,6 +49,7 @@ class TStyleGAN(ProgressiveGAN):
         self.n_mlp = n_mlp
         self.plot_iter = plot_iter
         self.lossDslidingAvg = -0.
+        self.ignore_phase = True
         ProgressiveGAN.__init__(self, **kwargs)
         
 
@@ -111,9 +112,6 @@ class TStyleGAN(ProgressiveGAN):
         else:
             self.config.learningRate[1] = 0.0006
 
-        if mse:
-            self.config.learningRate[1] = 0.
-
         print(f"\nSlidingAvg = {self.lossDslidingAvg}")
         print(f"LearningRateD = {self.config.learningRate[1]}")
 
@@ -124,6 +122,11 @@ class TStyleGAN(ProgressiveGAN):
         inputLatent, _ = self.buildNoiseData(batch_size)
         y_fake = self.netG(inputLatent, self.x_generator).detach().float()
 
+        if self.ignore_phase:
+            self.y[:, 1, ...] = 0
+            self.x[:, 1, ...] = 0
+            y_fake[:, 1, ...] = 0
+
         self.optimizerD.zero_grad()
 
         # real data
@@ -133,8 +136,8 @@ class TStyleGAN(ProgressiveGAN):
         if iter % self.plot_iter == 0:
             save_spectrogram(f"wav_spect_{iter}.png",
                              self.y.cpu().detach().numpy()[0, 0])
-            save_spectrogram(f"wav_phase_{iter}.png",
-                             self.y.cpu().detach().numpy()[0, 1])
+            # save_spectrogram(f"wav_phase_{iter}.png",
+            #                  self.y.cpu().detach().numpy()[0, 1])
 
         # fake data
         fake_xy = torch.cat([self.x_generator, y_fake], dim=1)
@@ -188,15 +191,11 @@ class TStyleGAN(ProgressiveGAN):
 
     def get_noise_fact(self, iter):
         mse = True
-        mse_until = 0
+        mse_until = 2500
         if iter > mse_until:
             mse = False
 
-        noise_fact = float(iter - mse_until) #* 1e-4
-        noise_fact = min(noise_fact, 1)
-
-        if mse:
-            noise_fact = 0.
+        noise_fact = 1.
 
         print(f"mse = {mse}, noise_fact = {noise_fact}")
         return mse, noise_fact
@@ -207,10 +206,7 @@ class TStyleGAN(ProgressiveGAN):
         if self.lossDslidingAvg < -500:
             self.config.learningRate[0] = 0.0006
         else:
-            self.config.learningRate[0] = 0.0006 #0.00003
-
-        if mse:
-            self.config.learningRate[0] = 0.001
+            self.config.learningRate[0] = 0.0006
 
         print(f"LearningRateG = {self.config.learningRate[0]}")
 
@@ -223,9 +219,15 @@ class TStyleGAN(ProgressiveGAN):
         # #1 Image generation
         inputLatent, _ = self.buildNoiseData(batch_size)
 
-        inputLatent *= (noise_fact * 1e-4)
+        #inputLatent *= (noise_fact * 1e-4)
+        inputLatent *= noise_fact
 
         y_fake = self.netG(inputLatent, self.x_generator)
+
+        if self.ignore_phase:
+            self.x_generator[:, 1, ...] = 0
+            y_fake[:, 1, ...] = 0
+            self.y[:, 1, ...] = 0
 
         if iter % self.plot_iter == 0:
             save_spectrogram(f"gen_spect_{iter}.png", y_fake.cpu().detach().numpy()[0, 0])
@@ -246,7 +248,8 @@ class TStyleGAN(ProgressiveGAN):
 
         print(f"Loss MSE = {lossMSE.item()}")
 
-        lossGFake += lossMSE
+        if mse:
+            lossGFake += lossMSE
 
         # Back-propagate generator losss
         lossGFake.backward()
