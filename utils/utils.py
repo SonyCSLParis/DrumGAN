@@ -391,7 +391,7 @@ def GPU_is_available():
 
 def load_model_checkp(dir, iteration=None, scale=None, **kwargs):
     # Loading the modelPackage
-    from pg_gan.progressive_gan import ProgressiveGAN
+    from gans.progressive_gan import ProgressiveGAN
     name = os.path.basename(dir)
     config_path = os.path.join(dir, f'{name}_config.json')
     

@@ -362,3 +362,6 @@ class ProgressiveGANTrainer(GANTrainer):
         self.dataLoader.set_getitem_transform(resize)
         return self.dataLoader
 
+    def sendLossToVisualization(self, loss):
+        pass
+

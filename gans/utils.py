@@ -1,3 +1,17 @@
+import librosa.display as display
+import matplotlib.pyplot as plt
+
+
+def save_spectrogram(fn="spect.png", spect=None):
+    plt.clf()
+    display.specshow(spect, y_axis='linear')
+    plt.colorbar(format='%+2.0f dB')
+    plt.savefig(fn)
+    plt.clf()
+    plt.hist(spect.flatten(), 500)
+    plt.savefig("hist_"+fn)
+
+
 # def interpolate(x, y, batch=True):
 #     assert x.size() == y.size(), "real and fake must be the same size"
 #     assert x.device == y.device, "tensor are not on the same device"

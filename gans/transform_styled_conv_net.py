@@ -141,9 +141,7 @@ class TStyledGNet(StyledGNet):
         for i, (conv, to_rgb) in enumerate(zip(self.scaleLayers, self.toRGBLayers)):
             out = conv(out, style, noise[i])
 
-            if i == step:
-                out = to_rgb(out)
-        return out
+        return to_rgb(out)
 
     def mean_style(self, input):
         style = self.style(input).mean(0, keepdim=True)
@@ -168,7 +166,7 @@ class TStyledDNet(DNet):
                                                    equalized=self.equalizedlR,
                                                    initBiasToZero=self.initBiasToZero))
 
-        self.groupScaleZero.append(EqualizedLinear(self.inputSizes[-1][0] * self.inputSizes[-1][1] * self.depthScale0, # here we have to multiply times the initial size (8 for generating 4096 in 9 scales)
+        self.groupScaleZero.append(EqualizedLinear(self.inputSizes[0][0] * self.inputSizes[0][1] * self.depthScale0, # here we have to multiply times the initial size (8 for generating 4096 in 9 scales)
                                                    self.depthScale0,
                                                    equalized=self.equalizedlR,
                                                    initBiasToZero=self.initBiasToZero))
@@ -191,6 +189,8 @@ class TStyledDNet(DNet):
         for i, groupLayer in enumerate(reversed(self.scaleLayers)):
             for layer in groupLayer:
                 x = self.leakyRelu(layer(x))
+            x = self.downScale(x, size=self.inputSizes[shift])
+            shift -= 1
        
        # Now the scale 0
        # Minibatch standard deviation

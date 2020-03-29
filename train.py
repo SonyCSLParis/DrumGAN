@@ -37,7 +37,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--save_iter', help="If it applies, frequence at\
                         which a checkpoint should be saved. In the case of a\
                         evaluation test, iteration to work on.",
-                        type=int, dest="save_i", default=50000)
+                        type=int, dest="save_i", default=1000)
     parser.add_argument('-e', '--eval_iter', help="If it applies, frequence at\
                         which evaluation is run", 
                         type=int, dest="eval_i", default=-1)

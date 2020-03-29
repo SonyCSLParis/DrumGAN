@@ -21,7 +21,6 @@ if __name__ == "__main__":
     parser.add_argument('-m', '--midi', help='Path to midi file',
                         type=str, dest="midi", 
                         default="./test_midi_files/midi_furelisa_adapted.mid")
-    
 
     if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help']:
         parser.print_help()
