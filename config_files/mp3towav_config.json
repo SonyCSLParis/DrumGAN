@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV5",
+    "name": "MP3_to_WAV7",
     "comments": "test",
     "output_path": "/media/oldssd/home/stefan/pycharm/audio-gan-lib/output_networks",
     "loader_config": {
@@ -18,8 +18,8 @@
         "win_size": 1024,
         "n_frames": 64,
         "hop_size": 256,
-        "log": false,
-        "ifreq": false,
+        "log": true,
+        "ifreq": true,
         "sample_rate": 16000,
         "audio_length": 16000
     },
@@ -62,14 +62,14 @@
             64,
             64,
             64,
-            32
+            64
         ],
         "miniBatchSize": [
             20,
             20,
             20,
             20,
-            10
+            16
         ],
         "n_mlp": 4,
         "dimLatentVector": 32,

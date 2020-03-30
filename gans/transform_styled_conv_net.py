@@ -140,9 +140,12 @@ class TStyledGNet(StyledGNet):
                                style=style,
                                noise=torch.randn(noise_dim, device=input_z.device))
         out = self.add_grad_map(out)
+        out = self.shift_maps(out)
         for i, (conv, to_rgb) in enumerate(zip(self.scaleLayers, self.toRGBLayers)):
             out = conv(out, style, noise[i])
             out = self.add_grad_map(out)
+            if i < len(self.scaleLayers) - 1:
+                out = self.shift_maps(out)
 
         return to_rgb(out)
 
@@ -150,13 +153,24 @@ class TStyledGNet(StyledGNet):
         if not self.add_gradient_map:
             return x
         # Adds a top-down gradient map (overwrites first map of x)
-        grad = torch.linspace(0, 1, x.shape[2])
+        gradv = torch.linspace(0, 1, x.shape[2])
+        gradh = torch.linspace(0, 1, x.shape[3])
         if torch.cuda.is_available():
-            grad = grad.cuda()
+            gradv = gradv.cuda()
+            gradh = gradh.cuda()
 
-        x[:, 0:1, :, :] = grad[None, None, :, None]
+        x[:, 0:1, :, :] = gradv[None, None, :, None]
+        x[:, 1:2, :, :] = gradh[None, None, None, :]
         return x
 
+    def shift_maps(self, x):
+        size = x.shape[2]
+        nr_maps = 16
+        step = size // nr_maps
+        for i, shift in enumerate(range(step, size-step, step)):
+            x[:, -(i+1), :(size-shift), :] = x[:, -(i+1), shift:, :]
+
+        return x
 
     def mean_style(self, input):
         style = self.style(input).mean(0, keepdim=True)

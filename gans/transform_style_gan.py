@@ -21,7 +21,7 @@ class TStyleGAN(ProgressiveGAN):
                  n_mlp=8,
                  noise_injection=True,
                  style_mixing=True,
-                 plot_iter=100,
+                 plot_iter=50,
                  **kwargs):
         r"""
         Args:
@@ -49,7 +49,7 @@ class TStyleGAN(ProgressiveGAN):
         self.n_mlp = n_mlp
         self.plot_iter = plot_iter
         self.lossDslidingAvg = -0.
-        self.ignore_phase = True
+        self.ignore_phase = False
         ProgressiveGAN.__init__(self, **kwargs)
         
 
@@ -191,7 +191,7 @@ class TStyleGAN(ProgressiveGAN):
 
     def get_noise_fact(self, iter):
         mse = True
-        mse_until = 2500
+        mse_until = 0
         if iter > mse_until:
             mse = False
 
