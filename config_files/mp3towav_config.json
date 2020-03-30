@@ -75,7 +75,7 @@
         "dimLatentVector": 32,
         "perChannelNormalization": true,
         "lossMode": "WGANGP",
-        "lambdaGP": 10.0,
+        "lambdaGP": 50.0,
         "leakyness": 0.02,
         "miniBatchStdDev": true,
         "baseLearningRate": [0.001, 0.0001],
