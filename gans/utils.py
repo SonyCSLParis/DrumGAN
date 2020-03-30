@@ -1,6 +1,8 @@
 import librosa.display as display
 import matplotlib.pyplot as plt
 
+import torch.nn.functional as F
+
 
 def save_spectrogram(fn="spect.png", spect=None):
     plt.clf()
@@ -10,6 +12,11 @@ def save_spectrogram(fn="spect.png", spect=None):
     plt.clf()
     plt.hist(spect.flatten(), 500)
     plt.savefig("hist_"+fn)
+
+
+def scale_interp(x, size=0, mode='nearest'):
+    # return F.adaptive_avg_pool2d(x, output_size=size)
+    return F.interpolate(x, mode=mode, size=size)
 
 
 # def interpolate(x, y, batch=True):

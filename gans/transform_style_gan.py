@@ -236,6 +236,12 @@ class TStyleGAN(ProgressiveGAN):
                              y_fake.cpu().detach().numpy()[0, 1])
             save_spectrogram(f"mp3_phase_{iter}.png",
                              self.x_generator.cpu().detach().numpy()[0, 1])
+            inputLatent2, _ = self.buildNoiseData(batch_size)
+            with torch.no_grad():
+                y_fake2 = self.netG(inputLatent2, self.x_generator)
+                save_spectrogram(f"gen_spect2_{iter}.png",
+                                 y_fake2.cpu().detach().numpy()[0, 0])
+
 
         # #2 Status evaluation
         fake_xy = torch.cat([self.x_generator, y_fake], dim=1)

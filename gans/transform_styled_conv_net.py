@@ -11,6 +11,7 @@ from utils.utils import num_flat_features
 from .mini_batch_stddev_module import miniBatchStdDev
 from .progressive_conv_net import DNet
 from .styled_progressive_conv_net import StyledGNet
+from .utils import scale_interp
 import random
 
 
@@ -78,6 +79,7 @@ class TStyledGNet(StyledGNet):
 
         """
         self.add_gradient_map = True
+        self.uNet = True
         StyledGNet.__init__(self, **kargs)
 
     def initFormatLayer(self):
@@ -178,9 +180,20 @@ class TStyledGNet(StyledGNet):
                                noise=torch.randn(noise_dim, device=input_z.device))
         out = add_grad_map(out)
         out = shift_maps(out)
+
+        outs = []
+
         for i, (conv, to_rgb) in enumerate(zip(self.scaleLayers, self.toRGBLayers)):
             out = conv(out, style, noise[i])
+
+            out = scale_interp(out, size=self.outputSizes[i])
             out = add_grad_map(out)
+
+            if self.uNet and i > self.nScales // 2:
+                out += outs[self.nScales-i-1]
+            elif self.uNet:
+                outs.append(out)
+
             # if i < len(self.scaleLayers) - 1:
             #     out = shift_maps(out)
 
@@ -196,6 +209,7 @@ class TStyledDNet(DNet):
     def __init__(self, **args):
         args['dimInput'] *= 2
         args['miniBatchNormalization'] = False
+        self.uNet = False
         DNet.__init__(self, **args)
 
     def initScale0Layer(self):
@@ -231,12 +245,23 @@ class TStyledDNet(DNet):
         # Explore all scales before 0
 
         shift = len(self.fromRGBLayers) - 2
+        nScales = len(self.fromRGBLayers) - 1
+
+        outs = []
+        if self.uNet:
+            outs.append(x)
 
         for i, groupLayer in enumerate(reversed(self.scaleLayers)):
             for layer in groupLayer:
                 x = self.leakyRelu(layer(x))
-            x = self.downScale(x, size=self.inputSizes[shift])
+            #x = scale_interp(x, size=self.inputSizes[shift])
             x = add_grad_map(x)
+
+            if self.uNet and i >= nScales // 2:
+                x += outs[nScales-i-1]
+            elif self.uNet:
+                outs.append(x)
+
             shift -= 1
        
        # Now the scale 0
