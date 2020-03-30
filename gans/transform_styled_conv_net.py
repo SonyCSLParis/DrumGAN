@@ -14,6 +14,43 @@ from .styled_progressive_conv_net import StyledGNet
 import random
 
 
+def add_grad_map(x):
+    # Adds a top-down gradient map (overwrites first map of x)
+    gradv = torch.linspace(0, 1, x.shape[2])
+    gradh = torch.linspace(0, 1, x.shape[3])
+
+    nr_reps = 8
+    rep_length = x.shape[2] // nr_reps
+    gradv_rep0 = torch.linspace(0, 1, rep_length).repeat(nr_reps)
+
+    nr_reps = 16
+    rep_length = x.shape[2] // nr_reps
+    gradv_rep1 = torch.linspace(0, 1, rep_length).repeat(nr_reps)
+
+    if torch.cuda.is_available():
+        gradv = gradv.cuda()
+        gradh = gradh.cuda()
+        gradv_rep0 = gradv_rep0.cuda()
+        gradv_rep1 = gradv_rep1.cuda()
+
+    x[:, 0:1, :, :] = gradv[None, None, :, None]
+    x[:, 1:2, :, :] = gradv_rep0[None, None, :, None]
+    x[:, 2:3, :, :] = gradv_rep1[None, None, :, None]
+    x[:, 3:4, :, :] = gradh[None, None, None, :]
+    return x
+
+
+def shift_maps(x):
+    size = x.shape[2]
+    nr_maps = 16
+    step = size // nr_maps
+    for i, shift in enumerate(range(step, size - step, step)):
+        x[:, -(i + 1), :(size - shift), :] = x[:, -(i + 1), shift:, :]
+        x[:, -(i + 1), (size - shift):, :] = 0
+
+    return x
+
+
 class TStyledGNet(StyledGNet):
     """
 
@@ -139,38 +176,15 @@ class TStyledGNet(StyledGNet):
         out = self.formatLayer(input_x,
                                style=style,
                                noise=torch.randn(noise_dim, device=input_z.device))
-        out = self.add_grad_map(out)
-        out = self.shift_maps(out)
+        out = add_grad_map(out)
+        out = shift_maps(out)
         for i, (conv, to_rgb) in enumerate(zip(self.scaleLayers, self.toRGBLayers)):
             out = conv(out, style, noise[i])
-            out = self.add_grad_map(out)
-            if i < len(self.scaleLayers) - 1:
-                out = self.shift_maps(out)
+            out = add_grad_map(out)
+            # if i < len(self.scaleLayers) - 1:
+            #     out = shift_maps(out)
 
         return to_rgb(out)
-
-    def add_grad_map(self, x):
-        if not self.add_gradient_map:
-            return x
-        # Adds a top-down gradient map (overwrites first map of x)
-        gradv = torch.linspace(0, 1, x.shape[2])
-        gradh = torch.linspace(0, 1, x.shape[3])
-        if torch.cuda.is_available():
-            gradv = gradv.cuda()
-            gradh = gradh.cuda()
-
-        x[:, 0:1, :, :] = gradv[None, None, :, None]
-        x[:, 1:2, :, :] = gradh[None, None, None, :]
-        return x
-
-    def shift_maps(self, x):
-        size = x.shape[2]
-        nr_maps = 16
-        step = size // nr_maps
-        for i, shift in enumerate(range(step, size-step, step)):
-            x[:, -(i+1), :(size-shift), :] = x[:, -(i+1), shift:, :]
-
-        return x
 
     def mean_style(self, input):
         style = self.style(input).mean(0, keepdim=True)
@@ -210,6 +224,9 @@ class TStyledDNet(DNet):
         # From RGB layer
         x = self.leakyRelu(self.fromRGBLayers[-1](x))
 
+        x = shift_maps(x)
+        x = add_grad_map(x)
+
         # Caution: we must explore the layers group in reverse order !
         # Explore all scales before 0
 
@@ -219,6 +236,7 @@ class TStyledDNet(DNet):
             for layer in groupLayer:
                 x = self.leakyRelu(layer(x))
             x = self.downScale(x, size=self.inputSizes[shift])
+            x = add_grad_map(x)
             shift -= 1
        
        # Now the scale 0

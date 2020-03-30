@@ -21,7 +21,7 @@ class TStyleGAN(ProgressiveGAN):
                  n_mlp=8,
                  noise_injection=True,
                  style_mixing=True,
-                 plot_iter=25,
+                 plot_iter=50,
                  **kwargs):
         r"""
         Args:
