@@ -140,7 +140,7 @@ class TStyleGAN(ProgressiveGAN):
                              self.y.cpu().detach().numpy()[0, 1])
 
         # fake data
-        fake_xy = torch.cat([self.x_generator, y_fake], dim=1)
+        fake_xy = torch.cat([self.y, y_fake], dim=1)
         D_fake = self.netD(fake_xy, False)
 
         # OBJECTIVE FUNCTION FOR TRUE AND FAKE DATA
@@ -220,7 +220,7 @@ class TStyleGAN(ProgressiveGAN):
         inputLatent, _ = self.buildNoiseData(batch_size)
 
         #inputLatent *= (noise_fact * 1e-4)
-        inputLatent *= noise_fact
+        inputLatent = inputLatent * 0 + 1
 
         y_fake = self.netG(inputLatent, self.x_generator)
 
@@ -244,7 +244,7 @@ class TStyleGAN(ProgressiveGAN):
 
 
         # #2 Status evaluation
-        fake_xy = torch.cat([self.x_generator, y_fake], dim=1)
+        fake_xy = torch.cat([self.y, y_fake], dim=1)
         D_fake = self.netD(fake_xy, False)
 
         # #3 GAN criterion

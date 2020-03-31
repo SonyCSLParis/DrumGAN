@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV9",
+    "name": "MP3_to_WAV10",
     "comments": "test",
     "output_path": "/media/oldssd/home/stefan/pycharm/audio-gan-lib/output_networks",
     "loader_config": {
@@ -72,7 +72,7 @@
             16
         ],
         "n_mlp": 4,
-        "dimLatentVector": 32,
+        "dimLatentVector": 4,
         "perChannelNormalization": true,
         "lossMode": "WGANGP",
         "lambdaGP": 50.0,
