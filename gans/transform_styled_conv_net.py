@@ -20,11 +20,11 @@ def add_grad_map(x):
     gradv = torch.linspace(0, 1, x.shape[2])
     gradh = torch.linspace(0, 1, x.shape[3])
 
-    nr_reps = 8
+    nr_reps = 4
     rep_length = x.shape[2] // nr_reps
     gradv_rep0 = torch.linspace(0, 1, rep_length).repeat(nr_reps)
 
-    nr_reps = 16
+    nr_reps = 8
     rep_length = x.shape[2] // nr_reps
     gradv_rep1 = torch.linspace(0, 1, rep_length).repeat(nr_reps)
 
@@ -36,7 +36,7 @@ def add_grad_map(x):
 
     x[:, 0:1, :, :] = gradv[None, None, :, None]
     x[:, 1:2, :, :] = gradv_rep0[None, None, :, None]
-    x[:, 2:3, :, :] = gradv_rep1[None, None, :, None]
+    #x[:, 2:3, :, :] = gradv_rep1[None, None, :, None]
     x[:, 3:4, :, :] = gradh[None, None, None, :]
     return x
 
@@ -179,7 +179,7 @@ class TStyledGNet(StyledGNet):
                                style=style,
                                noise=torch.randn(noise_dim, device=input_z.device))
         out = add_grad_map(out)
-        out = shift_maps(out)
+        #out = shift_maps(out)
 
         outs = []
 
@@ -238,7 +238,7 @@ class TStyledDNet(DNet):
         # From RGB layer
         x = self.leakyRelu(self.fromRGBLayers[-1](x))
 
-        x = shift_maps(x)
+        #x = shift_maps(x)
         x = add_grad_map(x)
 
         # Caution: we must explore the layers group in reverse order !

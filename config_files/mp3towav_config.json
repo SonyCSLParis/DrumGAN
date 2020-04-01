@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV10",
+    "name": "MP3_to_WAV11",
     "comments": "test",
     "output_path": "/media/oldssd/home/stefan/pycharm/audio-gan-lib/output_networks",
     "loader_config": {
@@ -30,11 +30,15 @@
             [1, 1],
             [2, 2],
             [4, 4],
+            [8, 4],
+            [4, 4],
             [2, 2],
             [1, 1]
         ],
         "imagefolderDataset": true,
         "maxIterAtScale": [
+            50,
+            50,
             50,
             50,
             50,
@@ -47,9 +51,13 @@
             600,
             600,
             600,
+            600,
+            600,
             1200
         ],
         "alphaSizeJumps": [
+            32,
+            32,
             32,
             32,
             32,
@@ -58,13 +66,17 @@
         ],
         "transposed": false,
         "depthScales": [
-            64,
-            64,
-            64,
-            64,
-            64
+            [64, 32],
+            [64, 32],
+            [64, 32],
+            [64, 32],
+            [64, 32],
+            [64, 32],
+            [64, 32]
         ],
         "miniBatchSize": [
+            20,
+            20,
             20,
             20,
             20,
@@ -87,7 +99,7 @@
             "pitch": 0,
             "instrument_family": 1
         },
-        "startScale": 4,
+        "startScale": 6,
         "skipAttDfake": []
     }
 }

@@ -49,7 +49,7 @@ class TStyleGAN(ProgressiveGAN):
         self.n_mlp = n_mlp
         self.plot_iter = plot_iter
         self.lossDslidingAvg = -0.
-        self.ignore_phase = False
+        self.ignore_phase = True
         ProgressiveGAN.__init__(self, **kwargs)
         
 
@@ -130,7 +130,7 @@ class TStyleGAN(ProgressiveGAN):
         self.optimizerD.zero_grad()
 
         # real data
-        true_xy = torch.cat([self.x, self.y], dim=1)
+        true_xy = torch.cat([self.y, self.y], dim=1)
         D_real = self.netD(true_xy, False)
 
         if iter % self.plot_iter == 0:
@@ -236,11 +236,11 @@ class TStyleGAN(ProgressiveGAN):
                              y_fake.cpu().detach().numpy()[0, 1])
             save_spectrogram(f"mp3_phase_{iter}.png",
                              self.x_generator.cpu().detach().numpy()[0, 1])
-            inputLatent2, _ = self.buildNoiseData(batch_size)
-            with torch.no_grad():
-                y_fake2 = self.netG(inputLatent2, self.x_generator)
-                save_spectrogram(f"gen_spect2_{iter}.png",
-                                 y_fake2.cpu().detach().numpy()[0, 0])
+            #inputLatent2, _ = self.buildNoiseData(batch_size)
+            #with torch.no_grad():
+            #    y_fake2 = self.netG(inputLatent2, self.x_generator)
+            #    save_spectrogram(f"gen_spect2_{iter}.png",
+            #                     y_fake2.cpu().detach().numpy()[0, 0])
 
 
         # #2 Status evaluation
