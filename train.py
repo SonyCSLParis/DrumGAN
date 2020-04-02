@@ -1,21 +1,20 @@
-import os
 import sys
-import importlib
 import argparse
-import time
-import json
-import torch
-import torch.backends.cudnn as cudnn
-
-from utils.utils import getLastCheckPoint, GPU_is_available, \
-    checkexists_mkdir, mkdir_in_path
-from utils.utils import *
-from utils.config import update_parser_with_config, get_config_override_from_parser
-from gans import ProgressiveGANTrainer
-from data.preprocessing import AudioProcessor
-
+import sys
 from datetime import datetime
+
 from data.loaders import get_data_loader
+from data.preprocessing import AudioProcessor
+from gans import ProgressiveGANTrainer
+from utils.config import update_parser_with_config, \
+    get_config_override_from_parser
+from utils.utils import *
+
+# get rid of the librosa warning when loading mp3s
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore") # Change the filter in this process
+    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
 
 if __name__ == "__main__":
 
