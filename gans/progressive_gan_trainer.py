@@ -358,7 +358,12 @@ class ProgressiveGANTrainer(GANTrainer):
         self.scaleSanityCheck()
 
     def getDataset(self, scale, size=None):
-        resize = ResizeWrapper(self.outputShapes[scale])
-        self.dataLoader.set_getitem_transform(resize)
-        return self.dataLoader
+        downscale = ResizeWrapper(self.outputShapes[scale])
+        upscale = ResizeWrapper(self.outputShapes[-1])
+        # HACK for inserting upscale transform in data loader
+        # postprocessing
+        self.loader.post_upscale = upscale
+        ##############
+        self.loader.set_getitem_transform(downscale)
+        return self.loader
 
