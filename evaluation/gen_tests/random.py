@@ -5,7 +5,7 @@ from .generation_tests import *
 
 from utils.utils import mkdir_in_path, load_model_checkp, saveAudioBatch
 from .generation_tests import StyleGEvaluationManager
-from data.preprocessing import AudioPreprocessor
+from data.preprocessing import AudioProcessor
 
 
 def generate(parser):
@@ -15,7 +15,7 @@ def generate(parser):
     latentDim = model.config.categoryVectorDim_G
 
     # We load a dummy data loader for post-processing
-    postprocess = AudioPreprocessor(**config['transformConfig']).get_postprocessor()
+    postprocess = AudioProcessor(**config['transform_config']).get_postprocessor()
 
     # Create output evaluation dir
     output_dir = mkdir_in_path(args.dir, f"generation_tests")
@@ -25,13 +25,13 @@ def generate(parser):
     
     
     # Create evaluation manager
-    eval_manager = StyleGEvaluationManager(model, n_gen=100)
+    eval_manager = StyleGEvaluationManager(model, n_gen=args.n_gen)
 
     gen_batch = eval_manager.test_random_generation()
     audio_out = map(postprocess, gen_batch)
 
     saveAudioBatch(audio_out,
                    path=output_dir,
-                   basename='test_pitch_sweep', 
-                   sr=config["transformConfig"]["sample_rate"])
+                   basename='test_random', 
+                   sr=config["transform_config"]["sample_rate"])
     print("FINISHED!\n")
