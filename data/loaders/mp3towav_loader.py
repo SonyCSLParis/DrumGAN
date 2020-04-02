@@ -51,14 +51,16 @@ class MP3ToWAV(AudioPairsLoader):
         pass
 
     def preprocess_data(self):
-        print("Preprocessing data pairs...")
-        self.data = list(map(self.preprocessing, 
-                        tqdm(self.data, desc='preprocessing-loop')))
-
         import multiprocessing
         p = multiprocessing.Pool(multiprocessing.cpu_count())
+
+        print("Preprocessing data pairs...")
+        self.data = list(p.map(self.preprocessing,
+                        tqdm(self.data, desc='preprocessing-loop')))
+
         preprocess_ = partial(preprocess, self.preprocessing)
-        self.metadata = list(p.map(preprocess_, self.metadata))
+        self.metadata = list(p.map(preprocess_,
+                            tqdm(self.metadata, desc='preprocessing-loop')))
         print("Data preprocessing done")
 
     def read_data(self):
