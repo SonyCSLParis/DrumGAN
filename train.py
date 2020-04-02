@@ -14,6 +14,8 @@ from utils.config import update_parser_with_config, get_config_override_from_par
 from gans import ProgressiveGANTrainer
 from data.preprocessing import AudioProcessor
 
+from data.loaders import get_data_loader
+
 from datetime import datetime
 import ipdb
 from visualization import getVisualizer
@@ -106,7 +108,7 @@ if __name__ == "__main__":
     loader_config = config['loader_config']
     dbname = loader_config.pop('dbname', args.dataset)
 
-    loader_module = get_loader(dbname)
+    loader_module = get_data_loader(dbname)
 
     loader = loader_module(dbname=dbname + '_' + transform_config['transform'],
                            output_path=checkpoint_dir, 

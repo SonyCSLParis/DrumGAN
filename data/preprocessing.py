@@ -6,7 +6,7 @@ from .audio_transforms import complex_to_lin, lin_to_complex, \
     safe_exp_spec, mag_phase_angle, norm_audio, fold_cqt, \
     unfold_cqt, fade_out, instantaneous_freq, inv_instantanteous_freq, mel, \
     imel, reshape, to_numpy, mfcc, imfcc, cqt, icqt, loader, zeropad, stft, \
-    istft
+    istft, to_torch
 
 from nsgt import NSGT, LogScale, LinScale, MelScale, OctScale
 import numpy as np
@@ -146,7 +146,7 @@ class AudioProcessor(DataProcessor):
         self._add_rm_dc()
         self._add_log_mag()
         self._add_ifreq()
-        self._add_to_torch()
+        # self._add_to_torch()
         self.output_shape = (2, self.n_bins, self.n_frames)
 
     def build_mel_pipeline(self):
@@ -252,12 +252,8 @@ class AudioProcessor(DataProcessor):
 
 
     def _add_to_torch(self):
-        def to_torch(x):
-            if type(x) is np.ndarray:
-                return torch.from_numpy(x).float()
-            else:
-                return torch.FloatTensor(x)
-        self.pre_pipeline.append(to_torch)
+
+        self.pre_pipeline.append(partial(to_torch))
 
     def _add_audio_loader(self):
         self.pre_pipeline.append(partial(loader, self.sample_rate,

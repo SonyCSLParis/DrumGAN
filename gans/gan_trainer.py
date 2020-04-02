@@ -29,7 +29,7 @@ class GANTrainer():
                  loader=None,
                  loss_plot_i=5000,
                  eval_i=5000,
-                 saveIter=5000,
+                 save_iter=5000,
                  config=None,
                  pathAttribDict=None,
                  selectedAttributes=None,

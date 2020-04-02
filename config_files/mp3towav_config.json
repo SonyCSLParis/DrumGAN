@@ -4,11 +4,14 @@
     "output_path": "output_networks",
     "loader_config": {
         "dbname": "mp3towav",
-        "data_path": "/data/nsynth/train/json_wav/audio/wav_mallets",
-        "data_path2": "/data/nsynth/train/json_wav/audio/mp3_mallets",
+        "data_path": "/Users/javier/Developer/datasets/mp3-to-wav_TEST/wav/",
+        "data_path2": "/Users/javier/Developer/datasets/mp3-to-wav_TEST/mp3/",
+        "criteria": {
+            "size": 100
+        },
         "shuffle": true,
-        "load_metadata": true,
-        "size": 100
+        "load_metadata": true
+        
     },
         
     "transform_config": {

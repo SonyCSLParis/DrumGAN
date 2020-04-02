@@ -32,6 +32,9 @@ class MP3ToWAV(AudioPairsLoader):
     def __init__(self, **kargs):
         AudioPairsLoader.__init__(self, **kargs)
 
+    def __hash__(self):
+        return self.preprocessing.__hash__()
+
     def __getitem__(self, index):
         if self.getitem_processing:
             return self.getitem_processing(self.data[index]), \
@@ -41,7 +44,7 @@ class MP3ToWAV(AudioPairsLoader):
 
     def get_pair(self, file):
         filename = get_filename(file)
-        pair = os.path.join(self.data_path2, filename + '.mp3')
+        pair = os.path.join(self.data_path2, filename + '.wav')
         if os.path.exists(pair):
             return pair
         else:
@@ -52,24 +55,30 @@ class MP3ToWAV(AudioPairsLoader):
 
     def preprocess_data(self):
         import multiprocessing
-        p = multiprocessing.Pool(multiprocessing.cpu_count())
-
+        p = multiprocessing.Pool(2)
+        # p = multiprocessing.Pool(multiprocessing.cpu_count())
+        ipdb.set_trace()
         print("Preprocessing data pairs...")
         self.data = list(p.map(self.preprocessing,
                         tqdm(self.data, desc='preprocessing-loop')))
 
+        ipdb.set_trace()
         preprocess_ = partial(preprocess, self.preprocessing)
         self.metadata = list(p.map(preprocess_,
                             tqdm(self.metadata, desc='preprocessing-loop')))
         print("Data preprocessing done")
+        ipdb.set_trace()
 
-    def read_data(self):
-        files = list_files_abs_path(self.data_path, self.format)
+    def load_data(self):
+        files = list_files_abs_path(self.data_path, 'wav')
+        data = []
+        metadata = []
         for file in files:
             mp3_file = self.get_pair(file)
             if mp3_file is None:
                 print(f"Pair not found for file {file}. Skipping...")
                 continue
-            self.data.append(file)
-            self.metadata.append(mp3_file)
-            if len(self.data) >= self.size: break
+            data.append(file)
+            metadata.append(mp3_file)
+            if len(data) >= self.criteria['size']: break
+        return data, metadata, {}
