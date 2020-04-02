@@ -25,13 +25,13 @@ def generate(parser):
     
     
     # Create evaluation manager
-    eval_manager = StyleGEvaluationManager(model, n_gen=100)
+    eval_manager = StyleGEvaluationManager(model, n_gen=args.n_gen)
 
     gen_batch = eval_manager.test_random_generation()
     audio_out = map(postprocess, gen_batch)
 
     saveAudioBatch(audio_out,
                    path=output_dir,
-                   basename='test_pitch_sweep', 
+                   basename='test_random',
                    sr=config["transform_config"]["sample_rate"])
     print("FINISHED!\n")

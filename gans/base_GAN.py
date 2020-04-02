@@ -13,6 +13,8 @@ from .gradient_losses import WGANGPGradientPenalty
 from utils.utils import loadPartOfStateDict, finiteCheck, \
     loadStateDictCompatible, GPU_is_available
 
+import ipdb
+
 
 class BaseGAN():
     r"""Abstract class: the basic framework for GAN training.
@@ -152,7 +154,7 @@ class BaseGAN():
         self.register_grads = False
 
 
-    def test(self, input, getAvG=False, toCPU=True, **kargs):
+    def test_G(self, input, getAvG=False, toCPU=True, **kargs):
         r"""
         Generate some data given the input latent vector.
 
@@ -169,6 +171,17 @@ class BaseGAN():
             return self.netG(input).detach().cpu()
         else:
             return self.netG(input).detach()
+
+    def test_D(self, input, get_labels=True, get_embeddings=True, output_device=torch.device('cuda')):
+        input = input.to(self.device)
+        pred, embedding = self.netD(input, True)
+
+        if get_labels:
+            pred, _ = self.ClassificationCriterion.getPredictionLabels(pred)
+        if get_embeddings:
+            return pred.detach().to(output_device), embedding.detach().to(output_device)
+        else:
+            return pred.detach().to(output_device)
 
     def buildAvG(self):
         r"""
@@ -307,17 +320,17 @@ class BaseGAN():
         r"""
         For labelled datasets: initialize the classification criterion.
         """
-        if self.config.weightConditionD != 0 and \
-                not self.config.attribKeysOrder:
-            raise AttributeError("If the weight on the conditional term isn't "
-                                 "null, then a attribute dictionnery should be"
-                                 " defined")
+        # if self.config.weightConditionD != 0 and \
+        #         not self.config.attribKeysOrder:
+        #     raise AttributeError("If the weight on the conditional term isn't "
+        #                          "null, then a attribute dictionnery should be"
+        #                          " defined")
 
-        if self.config.weightConditionG != 0 and \
-                not self.config.attribKeysOrder:
-            raise AttributeError("If the weight on the conditional term isn't \
-                                 null, then a attribute dictionnary should be \
-                                 defined")
+        # if self.config.weightConditionG != 0 and \
+        #         not self.config.attribKeysOrder:
+        #     raise AttributeError("If the weight on the conditional term isn't \
+        #                          null, then a attribute dictionnary should be \
+        #                          defined")
 
         if self.config.attribKeysOrder is not None:
 

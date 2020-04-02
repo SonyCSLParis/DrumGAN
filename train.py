@@ -15,7 +15,9 @@ from gans import ProgressiveGANTrainer
 from data.preprocessing import AudioProcessor
 
 from datetime import datetime
-from data.loaders import get_data_loader
+import ipdb
+from visualization import getVisualizer
+
 
 if __name__ == "__main__":
 
@@ -98,33 +100,45 @@ if __name__ == "__main__":
     # configure processor
     print("Data manager configuration")
     transform_config = config['transform_config']
-    preprocessing = AudioProcessor(**transform_config)
+    audio_processor = AudioProcessor(**transform_config)
+    
     # configure loader
     loader_config = config['loader_config']
     dbname = loader_config.pop('dbname', args.dataset)
-    loader_module = get_data_loader(dbname)
+
+    loader_module = get_loader(dbname)
+
     loader = loader_module(dbname=dbname + '_' + transform_config['transform'],
                            output_path=checkpoint_dir, 
-                           preprocessing=preprocessing, 
+                           preprocessing=audio_processor,
                            **loader_config)
-    # loader.set_preprocessing(preprocessing)
 
     print(f"Loading data. Found {len(loader)} instances")
-    model_config['output_shape'] = preprocessing.get_output_shape()
+    model_config['output_shape'] = audio_processor.get_output_shape()
     config["model_config"] = model_config
 
+    # visualization
+    vis_manager = \
+    getVisualizer(transform_config['transform'])(
+        output_path=checkpoint_dir,
+        env=exp_name,
+        sampleRate=transform_config.get('sample_rate', 16000))
+
+
     # save config file
-    save_config_file(config, os.path.join(checkpoint_dir, f'{exp_name}_config.json'))
+    save_json(config, os.path.join(checkpoint_dir, f'{exp_name}_config.json'))
 
     GANTrainer = trainerModule(
         model_name=exp_name,
         gpu=GPU_is_available(),
         loader=loader,
-        loss_iter=args.loss_i,
+        loss_plot_i=args.loss_i,
+        eval_i=args.eval_i,
         checkpoint_dir=checkpoint_dir,
         save_iter=args.save_i,
         n_samples=args.n_samples,
-        config=model_config)
+        config=model_config,
+        vis_manager=vis_manager)
 
     # load checkpoint
     print("Search and load last checkpoint")

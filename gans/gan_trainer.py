@@ -6,12 +6,14 @@ import numpy as np
 import torch
 
 from utils.config import get_config_from_dict, get_dict_from_config, BaseConfig
+from utils.utils import mkdir_in_path
+from abc import ABC, abstractmethod
 
 from tqdm import tqdm, trange
 
 from time import time
 import ipdb
-
+from visualization import LossVisualizer
 
 class GANTrainer():
     r"""
@@ -25,15 +27,16 @@ class GANTrainer():
                  gpu=True,
                  visualisation=None,
                  loader=None,
-                 loss_iter=5000,
-                 lossPlot=5000,
-                 save_iter=5000,
+                 loss_plot_i=5000,
+                 eval_i=5000,
+                 saveIter=5000,
                  config=None,
                  pathAttribDict=None,
                  selectedAttributes=None,
-                 imagefolderDataset=False,
                  ignoreAttribs=False,
                  n_samples=10,
+                 save_gen=True,
+                 vis_manager=None,
                  **kargs):
         r"""
         Args:
@@ -73,12 +76,14 @@ class GANTrainer():
         self.readTrainConfig(config)
 
         # Checkpoints ?
+        assert os.path.exists(checkpoint_dir), f'Checkpoint  dir {checkpoint_dir} does not exist!'
         self.checkPointDir = checkpoint_dir
+        self.output_dir = mkdir_in_path(self.checkPointDir, 'output')
         self.modelLabel = model_name
         self.saveIter = save_iter
         self.pathLossLog = None
         self.nSamples = n_samples
-
+        self.save_gen = save_gen
         if self.checkPointDir is not None:
             self.pathLossLog = os.path.abspath(os.path.join(self.checkPointDir,
                                                             self.modelLabel
@@ -89,30 +94,22 @@ class GANTrainer():
 
         # Initialize the model
         self.useGPU = gpu
+        self.device = torch.device('cuda' if self.useGPU else 'cpu')
 
         if not self.useGPU:
             self.numWorkers = 1
 
-        # self.pathAttribDict = pathAttribDict
-        self.pathAttribDict = config.get("pathAttribDict", None)
-        self.selectedAttributes = selectedAttributes
-        self.imagefolderDataset = imagefolderDataset
-        self.modelConfig.attribKeysOrder = None
-
-        self.dataLoader = loader
+        self.loader = loader
 
         self.startScale = self.modelConfig.startScale
 
-        # CONDITIONAL GAN
-        if not ignoreAttribs and self.modelConfig.ac_gan:
-            self.modelConfig.attribKeysOrder = self.dataLoader.getKeyOrders()
-            print("AC-GAN classes : ")
-            print(self.modelConfig.attribKeysOrder)
-            print("")
-
+        # # CONDITIONAL GAN
+        if self.modelConfig.ac_gan:
+            self.modelConfig.attribKeysOrder = \
+                self.loader.get_attribute_dict()
         # Intern state
         self.runningLoss = {}
-        self.lossPlot = lossPlot
+        
         # self.startScale = 0
 
         self.startIter = 0
@@ -121,9 +118,18 @@ class GANTrainer():
         # print("%d images detected" % int(len(self.getDataset(0, size=10))))
         self.initModel()
         # Loss printing
-        self.lossIterEvaluation = loss_iter
+        self.loss_plot_i = loss_plot_i
+        self.eval_i = eval_i
+        self.loss_visualizer = \
+            LossVisualizer(output_path=self.output_dir,
+                           env=self.modelLabel,
+                           save_figs=True)
 
+        # init ref eval vectors
+        self.init_reference_eval_vectors()
+        self.vis_manager = vis_manager
 
+    @abstractmethod
     def initModel(self):
         r"""
         Initialize the GAN model.
@@ -140,7 +146,6 @@ class GANTrainer():
             self.runningLoss[name][1] += 1
 
     def resetRunningLosses(self):
-
         self.runningLoss = {}
 
     def updateLossProfile(self, iter):
@@ -345,26 +350,6 @@ class GANTrainer():
     def inScaleUpdate(self, iter, scale, inputs_real):
         return inputs_real
 
-
-    def loss_names_to_code(self, key):
-        name2code = {
-            'lossD_classif': 'D_cls',
-            'lossG_classif': 'G_cls',
-            'lossD': 'D',
-            'lossG': 'G',
-            'lossD_real': 'D_real',
-            'lossD_fake': 'D_fake',
-            'lossD_Grad': 'D_grad',
-            'lossG_Grad': 'G_grad',
-            'lipschitz_norm': 'lipn',
-            'lossD_Epsilon': 'D_eps',
-            'lossG_fake': 'G_fake',
-            'lossG_GDPP': 'GDPP'
-
-        }
-        return name2code.get(key, key)
-
-
     def trainOnEpoch(self,
                      dbLoader,
                      scale,
@@ -388,41 +373,38 @@ class GANTrainer():
             be stopped
         """
         with tqdm(dbLoader, desc='Iter-loop') as t:
-            for labels, inputs_real in t:
-                if inputs_real.size()[0] < self.getMiniBatchSize(scale):
-                    continue
+
+            for inputs_real, labels in t:
+                # if inputs_real.size()[0] < self.getMiniBatchSize(scale):
+                #     continue
+
                 # Additionnal updates inside a scale
                 inputs_real = self.inScaleUpdate(self.iter, scale, inputs_real)
                 # Optimize parameters
-                # if len(data) > 2:
-                if type(labels) is tuple:
-                    # mask = data[2]
-                    mask = labels[1]
-                    allLosses = self.model.optimizeParameters(
-                        inputs_real, inputLabels=labels, inputMasks=mask, iter=self.iter)
-                else:
-                    allLosses = self.model.optimizeParameters(
-                        inputs_real, labels,
-                        dbLoader.dataset.get_random_labels(inputs_real.size(0)), iter=self.iter)
-
+                allLosses = self.model.optimizeParameters(
+                    inputs_real, 
+                    inputLabels=labels,
+                    fakeLabels=self.loader.get_random_labels(inputs_real.size(0)))
                 # Update and print losses
                 self.updateRunningLosses(allLosses)
                 state_msg = f'Iter: {self.iter}; scale: {scale} '
                 for key, val in allLosses.items():
-                    state_msg += f'{self.loss_names_to_code(key)}: {val:.2f}; '
+                    state_msg += f'{key}: {val:.2f}; '
                 t.set_description(state_msg)
 
                 # Plot losses
-                if self.iter % self.lossPlot == 0 and self.iter != 0:
+                if self.iter % self.loss_plot_i == 0:
                     # Reinitialize the losses
                     self.updateLossProfile(self.iter)
                     self.resetRunningLosses()
-                    self.sendLossToVisualization(scale)
+                    self.publish_loss()
+
+                # run evaluation/tests
+                if self.iter % self.eval_i == 0 and self.iter != 0:
+                    self.run_tests_evaluation_and_visualization(scale)
 
                 # Save checkpoint
-                if self.checkPointDir is not None and \
-                   self.iter % (self.saveIter - 1) == 0: # and self.iter != 0:
-
+                if self.iter % (self.saveIter - 1) == 0 and self.iter != 0:
                     labelSave = self.modelLabel + ("_s%d_i%d" % (scale, self.iter))
                     # Save Checkpoint
                     self.saveCheckpoint(outDir=self.checkPointDir,
@@ -434,3 +416,94 @@ class GANTrainer():
                     return True
         self.epoch += 1
         return True
+
+    def publish_loss(self):
+        self.loss_visualizer.publish(self.lossProfile[-1])
+
+    def init_reference_eval_vectors(self, batch_size=50):
+
+        self.true_ref, self.ref_labels = self.loader.get_validation_set(batch_size)
+        self.ref_labels_str = self.loader.index_to_labels(self.ref_labels, transpose=True)
+
+        batch_size = min(batch_size, len(self.ref_labels))
+        if self.modelConfig.ac_gan:
+            self.ref_z, _ = self.model.buildNoiseData(batch_size, inputLabels=self.ref_labels)
+        else:
+            self.ref_z, _ = self.model.buildNoiseData(batch_size)
+
+    def test_GAN(self):
+        # sample fake data
+        fake = self.model.test_G(input=self.ref_z, getAvG=False, toCPU=not self.useGPU)
+        fake_avg = self.model.test_G(input=self.ref_z, getAvG=True, toCPU=not self.useGPU)
+        
+        # predict labels for fake data
+        D_fake, fake_emb = self.model.test_D(fake, output_device='cpu')
+        D_fake = self.loader.index_to_labels(D_fake.detach(), transpose=True)
+
+        D_fake_avg, fake_avg_emb = self.model.test_D(fake_avg, output_device='cpu')
+        D_fake_avg = self.loader.index_to_labels(D_fake_avg.detach(), transpose=True)
+        
+        # predict labels for true data
+        true, _ = self.loader.get_validation_set(len(self.ref_labels), process=True)
+        D_true, true_emb = self.model.test_D(true, output_device='cpu')
+        D_true = self.loader.index_to_labels(D_true.detach(), transpose=True)
+
+        return D_true, true_emb.detach(), \
+               D_fake, fake_emb.detach(), \
+               D_fake_avg, fake_avg_emb.detach(), \
+               true, fake.detach(), fake_avg.detach()
+
+    def run_tests_evaluation_and_visualization(self, scale):
+        scale_output_dir = mkdir_in_path(self.output_dir, f'scale_{scale}')
+        iter_output_dir  = mkdir_in_path(scale_output_dir, f'iter_{self.iter}')
+        from utils.utils import saveAudioBatch
+
+        D_true, true_emb, \
+        D_fake, fake_emb, \
+        D_fake_avg, fake_avg_emb, \
+        true, fake, fake_avg = self.test_GAN()
+        
+        if self.modelConfig.ac_gan:
+            output_dir = mkdir_in_path(iter_output_dir, 'classification_report')
+            if not hasattr(self, 'cls_vis'):
+                from visualization.visualization import AttClassifVisualizer
+                self.cls_vis = AttClassifVisualizer(
+                    output_path=output_dir,
+                    env=self.modelLabel,
+                    save_figs=True,
+                    attributes=self.loader.header['attributes'].keys(),
+                    att_val_dict=self.loader.header['attributes'])
+            self.cls_vis.output_path = output_dir
+            self.cls_vis.publish(
+                self.ref_labels_str, 
+                D_true,
+                name=f'{scale}_true',
+                title=f'scale {scale} True data')
+            
+            self.cls_vis.publish(
+                self.ref_labels_str, 
+                D_true,
+                name=f'{scale}_fake',
+                title=f'scale {scale} Fake data')
+
+        if self.save_gen:
+            output_dir = mkdir_in_path(iter_output_dir, 'generation')
+            saveAudioBatch(
+                self.loader.postprocess(fake), 
+                path=output_dir, 
+                basename=f'gen_audio_scale_{scale}')
+
+        if self.vis_manager != None:
+            output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
+            self.vis_manager.set_postprocessing(
+                self.loader.get_postprocessor())
+            self.vis_manager.publish(
+                true[:5], 
+                labels=D_true[0][:5], 
+                name=f'real_scale_{scale}', 
+                output_dir=output_dir)
+            self.vis_manager.publish(
+                fake[:5], 
+                labels=D_fake[0][:5], 
+                name=f'fake_scale_{scale}', 
+                output_dir=output_dir)
