@@ -3,6 +3,8 @@ import os.path
 import dill
 import torch.utils.data as data
 import torch
+from functools import partial
+
 from utils.utils import mkdir_in_path, read_json, filter_keys_in_strings, list_files_abs_path, get_filename
 
 import numpy as np
@@ -21,6 +23,10 @@ import ipdb
 
 
 FORMATS = ["wav", "mp3"]
+
+
+def preprocess(preprocessing, data):
+    return preprocessing(data)
 
 class MP3ToWAV(AudioPairsLoader):
     def __init__(self, **kargs):
@@ -48,9 +54,11 @@ class MP3ToWAV(AudioPairsLoader):
         print("Preprocessing data pairs...")
         self.data = list(map(self.preprocessing, 
                         tqdm(self.data, desc='preprocessing-loop')))
-        
-        self.metadata = list(map(self.preprocessing, 
-                        tqdm(self.metadata, desc='preprocessing-loop')))
+
+        import multiprocessing
+        p = multiprocessing.Pool(multiprocessing.cpu_count())
+        preprocess_ = partial(preprocess, self.preprocessing)
+        self.metadata = list(p.map(preprocess_, self.metadata))
         print("Data preprocessing done")
 
     def read_data(self):
