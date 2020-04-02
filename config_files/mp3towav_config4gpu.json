@@ -1,11 +1,11 @@
 {
-    "name": "MP3_to_WAV11",
+    "name": "MP3_to_WAV13",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {
         "dbname": "mp3towav",
-        "data_path": "/data/nsynth/valid/json_wav/audio/wav",
-        "data_path2": "/data/nsynth/valid/json_wav/audio/mp3",
+        "data_path": "/data/nsynth/train/json_wav/audio/wav",
+        "data_path2": "/data/nsynth/train/json_wav/audio/mp3",
         "shuffle": true,
         "load_metadata": true,
         "size": 12678
@@ -28,33 +28,36 @@
         "ac_gan": false,
         "downSamplingFactor": [
             [1, 1],
-            [1, 1],
-            [1, 1],
-            [2, 2],
-            [4, 4],
+            [2, 1],
+            [4, 2],
             [8, 4],
-            [4, 4],
-            [2, 2],
-            [1, 1],
+            [16, 8],
+            [32, 16],
+            [16, 8],
+            [8, 4],
+            [4, 2],
+            [2, 1],
             [1, 1],
             [1, 1]
         ],
         "imagefolderDataset": true,
         "maxIterAtScale": [
-            50,
-            50,
-            50,
-            50,
-            50,
-            50,
-            50,
-            50,
-            50,
-            50,
-            15000
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            30000
         ],
         "alphaJumpMode": "linear",
         "alphaNJumps": [
+            600,
             600,
             600,
             600,
@@ -78,21 +81,23 @@
             32,
             32,
             32,
+            32,
             32
         ],
         "transposed": false,
         "depthScales": [
-            [64, 32],
-            [64, 32],
-            [64, 32],
-            [64, 32],
-            [64, 32],
-            [64, 32],
-            [64, 32],
-            [64, 32],
-            [64, 32],
-            [64, 32],
-            [64, 32]
+            [16, 16],
+            [32, 16],
+            [64, 16],
+            [128, 16],
+            [256, 16],
+            [512, 16],
+            [256, 16],
+            [128, 16],
+            [64, 16],
+            [32, 16],
+            [16, 16],
+            [32, 16]
         ],
         "miniBatchSize": [
             20,
@@ -105,7 +110,8 @@
             20,
             20,
             20,
-            40
+            20,
+            32
         ],
         "n_mlp": 4,
         "dimLatentVector": 4,
@@ -123,7 +129,7 @@
             "pitch": 0,
             "instrument_family": 1
         },
-        "startScale": 10,
+        "startScale": 11,
         "skipAttDfake": []
     }
 }

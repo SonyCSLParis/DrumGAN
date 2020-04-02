@@ -190,7 +190,10 @@ class TStyledGNet(StyledGNet):
             out = add_grad_map(out)
 
             if self.uNet and i > self.nScales // 2:
-                out += outs[self.nScales-i-1]
+                try:
+                    out += outs[self.nScales-i-1]
+                except RuntimeError:
+                    pass
             elif self.uNet:
                 outs.append(out)
 
