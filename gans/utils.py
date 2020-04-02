@@ -1,17 +1,18 @@
 import librosa.display as display
 import matplotlib.pyplot as plt
+import os
 
 import torch.nn.functional as F
 
 
-def save_spectrogram(fn="spect.png", spect=None):
+def save_spectrogram(out_dir=".", fn="spect.png", spect=None):
     plt.clf()
     display.specshow(spect, y_axis='linear')
     plt.colorbar(format='%+2.0f dB')
-    plt.savefig(fn)
-    plt.clf()
-    plt.hist(spect.flatten(), 500)
-    plt.savefig("hist_"+fn)
+    plt.savefig(os.path.join(out_dir, fn))
+    #plt.clf()
+    #plt.hist(spect.flatten(), 500)
+    #plt.savefig(os.path.join(out_dir, "hist_"+fn))
 
 
 def scale_interp(x, size=0, mode='nearest'):

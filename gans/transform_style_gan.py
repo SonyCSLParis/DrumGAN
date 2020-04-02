@@ -134,10 +134,10 @@ class TStyleGAN(ProgressiveGAN):
         D_real = self.netD(true_xy, False)
 
         if iter % self.plot_iter == 0:
-            save_spectrogram(f"wav_spect_{iter}.png",
+            save_spectrogram("plots", f"wav_spect_{iter}.png",
                              self.y.cpu().detach().numpy()[0, 0])
-            save_spectrogram(f"wav_phase_{iter}.png",
-                             self.y.cpu().detach().numpy()[0, 1])
+            #save_spectrogram("plots", f"wav_phase_{iter}.png",
+            #                 self.y.cpu().detach().numpy()[0, 1])
 
         # fake data
         fake_xy = torch.cat([self.y, y_fake], dim=1)
@@ -230,12 +230,12 @@ class TStyleGAN(ProgressiveGAN):
             self.y[:, 1, ...] = 0
 
         if iter % self.plot_iter == 0:
-            save_spectrogram(f"gen_spect_{iter}.png", y_fake.cpu().detach().numpy()[0, 0])
-            save_spectrogram(f"mp3_spect_{iter}.png", self.x_generator.cpu().detach().numpy()[0, 0])
-            save_spectrogram(f"gen_phase_{iter}.png",
-                             y_fake.cpu().detach().numpy()[0, 1])
-            save_spectrogram(f"mp3_phase_{iter}.png",
-                             self.x_generator.cpu().detach().numpy()[0, 1])
+            save_spectrogram("plots", f"gen_spect_{iter}.png", y_fake.cpu().detach().numpy()[0, 0])
+            save_spectrogram("plots", f"mp3_spect_{iter}.png", self.x_generator.cpu().detach().numpy()[0, 0])
+            #save_spectrogram("plots", f"gen_phase_{iter}.png",
+            #                 y_fake.cpu().detach().numpy()[0, 1])
+            #save_spectrogram("plots", f"mp3_phase_{iter}.png",
+            #                 self.x_generator.cpu().detach().numpy()[0, 1])
             #inputLatent2, _ = self.buildNoiseData(batch_size)
             #with torch.no_grad():
             #    y_fake2 = self.netG(inputLatent2, self.x_generator)
