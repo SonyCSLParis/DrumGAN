@@ -7,6 +7,8 @@ import torch.nn.functional as F
 
 def save_spectrogram(out_dir=".", fn="spect.png", spect=None):
     plt.clf()
+    spect[spect < -25.] = -25.
+    spect[spect > 6.] = 6.
     display.specshow(spect, y_axis='linear', sr=16000, hop_length=256)
     plt.colorbar(format='%+2.0f dB')
     plt.savefig(os.path.join(out_dir, fn))

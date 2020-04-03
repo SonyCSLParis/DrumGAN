@@ -213,7 +213,7 @@ class TStyledDNet(DNet):
     def __init__(self, **args):
         args['dimInput'] *= 2
         args['miniBatchNormalization'] = False
-        self.uNet = True
+        self.uNet = False
         DNet.__init__(self, **args)
 
     def initScale0Layer(self):
@@ -228,12 +228,16 @@ class TStyledDNet(DNet):
                                                    initBiasToZero=self.initBiasToZero))
 
         self.groupScaleZero.append(EqualizedLinear(self.inputSizes[0][0] * self.inputSizes[0][1] * self.depthScale0, # here we have to multiply times the initial size (8 for generating 4096 in 9 scales)
-                                                   self.depthScale0,
+                                                   64,
                                                    equalized=self.equalizedlR,
                                                    initBiasToZero=self.initBiasToZero))
+        self.groupScaleZero.append(EqualizedLinear(
+            64, 64,
+            equalized=self.equalizedlR,
+            initBiasToZero=self.initBiasToZero))
 
     def initDecisionLayer(self, sizeDecisionLayer):
-        self.decisionLayer = EqualizedLinear(self.scalesDepth[0],
+        self.decisionLayer = EqualizedLinear(64,
                                              sizeDecisionLayer,
                                              equalized=self.equalizedlR,
                                              initBiasToZero=self.initBiasToZero)
@@ -256,32 +260,38 @@ class TStyledDNet(DNet):
             outs.append(x)
 
         for i, groupLayer in enumerate(reversed(self.scaleLayers)):
-            for layer in groupLayer:
-                x = self.leakyRelu(layer(x))
-            x = scale_interp(x, size=self.inputSizes[shift], mode="bilinear")
-            x = add_grad_map(x)
+            if not i > 2 and not i < 6:
+                for layer in groupLayer:
+                    x = self.leakyRelu(layer(x))
+                #x = scale_interp(x, size=self.inputSizes[shift], mode="bilinear")
+                x = add_grad_map(x)
 
-            if self.uNet and i >= nScales // 2:
-                try:
-                    x = x + outs[nScales-i-1]
-                except RuntimeError:
-                    # If the UNet is not symmetric (additional output layers)
-                    pass
-            elif self.uNet:
-                outs.append(x)
+                if self.uNet and i >= nScales // 2:
+                    try:
+                        x = x + outs[nScales-i-1]
+                    except RuntimeError:
+                        # If the UNet is not symmetric (additional output layers)
+                        pass
+                elif self.uNet:
+                    outs.append(x)
 
-            shift -= 1
+                shift -= 1
        
        # Now the scale 0
        # Minibatch standard deviation
         if self.miniBatchNormalization:
             x = miniBatchStdDev(x)
 
+        #print(self.groupScaleZero[0])
         x = self.leakyRelu(self.groupScaleZero[0](x))
         x = x.view(-1, num_flat_features(x))
 
         x_lin = self.groupScaleZero[1](x)
         x = self.leakyRelu(x_lin)
+
+        for i in range(5):
+            x_lin = self.groupScaleZero[2](x)
+            x = self.leakyRelu(x_lin)
 
         out = self.decisionLayer(x)
 

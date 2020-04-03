@@ -149,6 +149,13 @@ class TStyleGAN(ProgressiveGAN):
         else:
             fake_xy = torch.cat([self.x_generator, y_fake], dim=1)
 
+        # print(f"fake min = {y_fake.min()}")
+        # print(f"wav min = {self.y.min()}")
+        # print(f"mp3 min = {self.x.min()}")
+        # print(f"fake max = {y_fake.max()}")
+        # print(f"wav max = {self.y.max()}")
+        # print(f"mp3 max = {self.x.max()}")
+
         D_fake = self.netD(fake_xy, False)
 
         # OBJECTIVE FUNCTION FOR TRUE AND FAKE DATA
