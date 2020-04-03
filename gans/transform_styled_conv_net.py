@@ -258,7 +258,7 @@ class TStyledDNet(DNet):
         for i, groupLayer in enumerate(reversed(self.scaleLayers)):
             for layer in groupLayer:
                 x = self.leakyRelu(layer(x))
-            x = scale_interp(x, size=self.inputSizes[shift])
+            x = scale_interp(x, size=self.inputSizes[shift], mode="bilinear")
             x = add_grad_map(x)
 
             if self.uNet and i >= nScales // 2:
