@@ -289,9 +289,8 @@ class TStyledDNet(DNet):
         x_lin = self.groupScaleZero[1](x)
         x = self.leakyRelu(x_lin)
 
-        for i in range(5):
-            x_lin = self.groupScaleZero[2](x)
-            x = self.leakyRelu(x_lin)
+        x_lin = self.groupScaleZero[2](x)
+        x = self.leakyRelu(x_lin)
 
         out = self.decisionLayer(x)
 

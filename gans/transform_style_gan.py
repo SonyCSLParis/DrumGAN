@@ -107,8 +107,8 @@ class TStyleGAN(ProgressiveGAN):
 
     def optimizeD(self, allLosses, iter):
 
-        if self.lossDslidingAvg < -10000:
-            self.config.learningRate[1] = 0.0006
+        if self.lossDslidingAvg < -5000:
+            self.config.learningRate[1] = 0.0001
         else:
             self.config.learningRate[1] = 0.0006
 
