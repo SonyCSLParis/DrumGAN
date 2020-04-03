@@ -51,23 +51,24 @@ class MP3ToWAV(AudioPairsLoader):
             return None
 
     def get_random_labels(self, size):
-        pass
+        ipdb.set_trace()
+        return None
+
+    def index_to_labels(self, **args):
+        return None
 
     def preprocess_data(self):
         import multiprocessing
-        p = multiprocessing.Pool(2)
-        # p = multiprocessing.Pool(multiprocessing.cpu_count())
-        ipdb.set_trace()
+        p = multiprocessing.Pool(multiprocessing.cpu_count())
+
         print("Preprocessing data pairs...")
         self.data = list(p.map(self.preprocessing,
                         tqdm(self.data, desc='preprocessing-loop')))
 
-        ipdb.set_trace()
         preprocess_ = partial(preprocess, self.preprocessing)
         self.metadata = list(p.map(preprocess_,
                             tqdm(self.metadata, desc='preprocessing-loop')))
         print("Data preprocessing done")
-        ipdb.set_trace()
 
     def load_data(self):
         files = list_files_abs_path(self.data_path, 'wav')
