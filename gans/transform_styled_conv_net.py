@@ -166,9 +166,9 @@ class TStyledGNet(StyledGNet):
         step = len(self.toRGBLayers) - 1
         style = self.style(input_z)
         batch_size = input_z.size(0)
-        noise_dim = (batch_size, 
-                     1, 
-                     self.outputSizes[-1][0], 
+        noise_dim = (batch_size,
+                     1,
+                     self.outputSizes[-1][0],
                      self.outputSizes[-1][1])
         if noise is None:
             noise = []
@@ -191,8 +191,9 @@ class TStyledGNet(StyledGNet):
 
             if self.uNet and i > self.nScales // 2:
                 try:
-                    out += outs[self.nScales-i-1]
+                    out = out + outs[self.nScales-i-1]
                 except RuntimeError:
+                    # If the UNet is not symmetric (additional output layers)
                     pass
             elif self.uNet:
                 outs.append(out)
@@ -212,7 +213,7 @@ class TStyledDNet(DNet):
     def __init__(self, **args):
         args['dimInput'] *= 2
         args['miniBatchNormalization'] = False
-        self.uNet = False
+        self.uNet = True
         DNet.__init__(self, **args)
 
     def initScale0Layer(self):
@@ -257,11 +258,15 @@ class TStyledDNet(DNet):
         for i, groupLayer in enumerate(reversed(self.scaleLayers)):
             for layer in groupLayer:
                 x = self.leakyRelu(layer(x))
-            #x = scale_interp(x, size=self.inputSizes[shift])
+            x = scale_interp(x, size=self.inputSizes[shift])
             x = add_grad_map(x)
 
             if self.uNet and i >= nScales // 2:
-                x += outs[nScales-i-1]
+                try:
+                    x = x + outs[nScales-i-1]
+                except RuntimeError:
+                    # If the UNet is not symmetric (additional output layers)
+                    pass
             elif self.uNet:
                 outs.append(x)
 

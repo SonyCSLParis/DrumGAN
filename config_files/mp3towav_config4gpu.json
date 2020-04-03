@@ -1,14 +1,14 @@
 {
-    "name": "MP3_to_WAV13",
+    "name": "MP3_to_WAV14",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {
         "dbname": "mp3towav",
         "data_path": "/data/nsynth/train/json_wav/audio/wav",
-        "data_path2": "/data/nsynth/train/json_wav/audio/mp3",
+        "data_path2": "/data/nsynth/train/json_wav/audio/wav_of_16k_mp3",
         "shuffle": true,
         "load_metadata": true,
-        "size": 12678
+        "size": 100000
     },
         
     "transform_config": {
@@ -87,17 +87,17 @@
         "transposed": false,
         "depthScales": [
             [16, 16],
-            [32, 16],
-            [64, 16],
-            [128, 16],
-            [256, 16],
-            [512, 16],
-            [256, 16],
-            [128, 16],
-            [64, 16],
-            [32, 16],
-            [16, 16],
-            [32, 16]
+            [32, 32],
+            [64, 64],
+            [128, 128],
+            [256, 256],
+            [512, 512],
+            [256, 256],
+            [128, 128],
+            [64, 64],
+            [64, 64],
+            [32, 32],
+            [32, 32]
         ],
         "miniBatchSize": [
             20,
@@ -113,8 +113,8 @@
             20,
             32
         ],
-        "n_mlp": 4,
-        "dimLatentVector": 4,
+        "n_mlp": 8,
+        "dimLatentVector": 32,
         "perChannelNormalization": true,
         "lossMode": "WGANGP",
         "lambdaGP": 50.0,

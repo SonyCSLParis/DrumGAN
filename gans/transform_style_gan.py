@@ -50,6 +50,7 @@ class TStyleGAN(ProgressiveGAN):
         self.plot_iter = plot_iter
         self.lossDslidingAvg = -0.
         self.ignore_phase = True
+        self.sanity = False
         ProgressiveGAN.__init__(self, **kwargs)
         
 
@@ -105,10 +106,9 @@ class TStyleGAN(ProgressiveGAN):
         return dnet
 
     def optimizeD(self, allLosses, iter):
-        mse, noise_fact = self.get_noise_fact(iter)
 
         if self.lossDslidingAvg < -500:
-            self.config.learningRate[1] = 0.00003
+            self.config.learningRate[1] = 0.0006
         else:
             self.config.learningRate[1] = 0.0006
 
@@ -130,7 +130,11 @@ class TStyleGAN(ProgressiveGAN):
         self.optimizerD.zero_grad()
 
         # real data
-        true_xy = torch.cat([self.y, self.y], dim=1)
+        if self.sanity:
+            true_xy = torch.cat([self.y, self.y], dim=1)
+        else:
+            true_xy = torch.cat([self.x, self.y], dim=1)
+
         D_real = self.netD(true_xy, False)
 
         if iter % self.plot_iter == 0:
@@ -140,7 +144,11 @@ class TStyleGAN(ProgressiveGAN):
             #                 self.y.cpu().detach().numpy()[0, 1])
 
         # fake data
-        fake_xy = torch.cat([self.y, y_fake], dim=1)
+        if self.sanity:
+            fake_xy = torch.cat([self.y, y_fake], dim=1)
+        else:
+            fake_xy = torch.cat([self.x_generator, y_fake], dim=1)
+
         D_fake = self.netD(fake_xy, False)
 
         # OBJECTIVE FUNCTION FOR TRUE AND FAKE DATA
@@ -150,8 +158,6 @@ class TStyleGAN(ProgressiveGAN):
         lossDFake = self.lossCriterion.getCriterion(D_fake, False)
         allLosses["lossD_fake"] = lossDFake.item()
         lossD = -lossD + lossDFake
-
-        lossD *= noise_fact
 
         allLosses["Spread_R-F"] = lossD.item()
 
@@ -189,19 +195,7 @@ class TStyleGAN(ProgressiveGAN):
 
         return allLosses
 
-    def get_noise_fact(self, iter):
-        mse = True
-        mse_until = 0
-        if iter > mse_until:
-            mse = False
-
-        noise_fact = 1.
-
-        print(f"mse = {mse}, noise_fact = {noise_fact}")
-        return mse, noise_fact
-
     def optimizeG(self, allLosses, iter):
-        mse, noise_fact = self.get_noise_fact(iter)
 
         if self.lossDslidingAvg < -500:
             self.config.learningRate[0] = 0.0006
@@ -220,7 +214,8 @@ class TStyleGAN(ProgressiveGAN):
         inputLatent, _ = self.buildNoiseData(batch_size)
 
         #inputLatent *= (noise_fact * 1e-4)
-        inputLatent = inputLatent * 0 + 1
+        if self.sanity:
+            inputLatent = inputLatent * 0 + 1
 
         y_fake = self.netG(inputLatent, self.x_generator)
 
@@ -230,36 +225,39 @@ class TStyleGAN(ProgressiveGAN):
             self.y[:, 1, ...] = 0
 
         if iter % self.plot_iter == 0:
-            save_spectrogram("plots", f"gen_spect_{iter}.png", y_fake.cpu().detach().numpy()[0, 0])
-            save_spectrogram("plots", f"mp3_spect_{iter}.png", self.x_generator.cpu().detach().numpy()[0, 0])
+            save_spectrogram("plots", f"gen_spect_{iter}.png",
+                             y_fake.cpu().detach().numpy()[0, 0])
+            save_spectrogram("plots", f"mp3_spect_{iter}.png",
+                             self.x_generator.cpu().detach().numpy()[0, 0])
             #save_spectrogram("plots", f"gen_phase_{iter}.png",
             #                 y_fake.cpu().detach().numpy()[0, 1])
             #save_spectrogram("plots", f"mp3_phase_{iter}.png",
             #                 self.x_generator.cpu().detach().numpy()[0, 1])
-            #inputLatent2, _ = self.buildNoiseData(batch_size)
-            #with torch.no_grad():
-            #    y_fake2 = self.netG(inputLatent2, self.x_generator)
-            #    save_spectrogram(f"gen_spect2_{iter}.png",
-            #                     y_fake2.cpu().detach().numpy()[0, 0])
+            inputLatent2, _ = self.buildNoiseData(batch_size)
+            with torch.no_grad():
+               y_fake2 = self.netG(inputLatent2, self.x_generator)
+               save_spectrogram("plots", f"gen_spect2_{iter}.png",
+                                y_fake2.cpu().detach().numpy()[0, 0])
 
 
         # #2 Status evaluation
-        fake_xy = torch.cat([self.y, y_fake], dim=1)
+        if self.sanity:
+            fake_xy = torch.cat([self.y, y_fake], dim=1)
+        else:
+            fake_xy = torch.cat([self.x_generator, y_fake], dim=1)
+
         D_fake = self.netD(fake_xy, False)
 
         # #3 GAN criterion
         lossGFake = self.lossCriterion.getCriterion(D_fake, False)
 
-        lossGFake = -lossGFake * noise_fact
+        lossGFake = -lossGFake
 
         allLosses["lossG_fake"] = lossGFake.item()
 
         lossMSE = ((y_fake - self.y) ** 2).mean()
 
         print(f"Loss MSE = {lossMSE.item()}")
-
-        if mse:
-            lossGFake += lossMSE
 
         # Back-propagate generator losss
         lossGFake.backward()

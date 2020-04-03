@@ -41,7 +41,7 @@ class MP3ToWAV(AudioPairsLoader):
 
     def get_pair(self, file):
         filename = get_filename(file)
-        pair = os.path.join(self.data_path2, filename + '.mp3')
+        pair = os.path.join(self.data_path2, filename + '.mp3.wav')
         if os.path.exists(pair):
             return pair
         else:

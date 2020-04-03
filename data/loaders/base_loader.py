@@ -79,8 +79,8 @@ class DataLoader(ABC, data.Dataset):
         else:
             print(f"Saving dataset in {self.pt_file_path}")
             self.init_dataset()
-            torch.save(self, self.pt_file_path, pickle_module=dill)
-            print(f"Dataset saved.")
+            #torch.save(self, self.pt_file_path, pickle_module=dill)
+            #print(f"Dataset saved.")
 
         if self.balance_att:
             print("")
