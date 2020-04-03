@@ -332,7 +332,7 @@ class BaseGAN():
         #                          null, then a attribute dictionnary should be \
         #                          defined")
 
-        if self.config.attribKeysOrder is not None:
+        if self.config.attribKeysOrder is not None and self.config.ac_gan:
 
             self.ClassificationCriterion = \
                     ACGANCriterion(self.config.attribKeysOrder, 
