@@ -91,6 +91,25 @@ def rainbowgram_matplot(audio, title, figsize=(6.4, 4.8)):
     fig.tight_layout()
     return fig
 
+def plotlyHeatmap(data, title, subplot_titles=['mag', 'phase']):
+    if type(data) == torch.Tensor:
+        data = data.numpy()
+    if data.shape[0] == 2:
+        mag_spec, ph_spec = data[0], data[1]
+    else:
+        mag_spec, ph_spec = librosaSpec(data)
+    fig = make_subplots(rows=1, cols=2, subplot_titles=subplot_titles, print_grid=False, shared_yaxes=True)
+    mtrace = go.Heatmap(z=list(mag_spec), colorbar=dict(x=0.45))
+    ptrace = go.Heatmap(z=list(ph_spec))
+    fig.append_trace(mtrace, 1, 1)
+    fig.update_xaxes(title_text="time", row=1, col=1)
+    fig.update_yaxes(title_text="freq", row=1, col=1)
+    fig.append_trace(ptrace, 1, 2)
+    fig.update_xaxes(title_text="time", row=1, col=2)
+    fig.update_layout(
+        autosize=True, 
+        title_text=title)
+    return fig
 
 def heatmap_plotly(hm, title, xtitle='time', ytitle='freq'):
     fig = go.Figure()
