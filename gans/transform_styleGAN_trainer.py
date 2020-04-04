@@ -8,6 +8,9 @@ from .transform_style_gan import TStyleGAN
 from tqdm import tqdm
 from .spgan_config import _C
 import numpy as np
+import torch
+from utils.utils import mkdir_in_path
+
 
 class TStyleGANTrainer(ProgressiveGANTrainer):
     r"""
@@ -120,3 +123,66 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                     return True
         self.epoch += 1
         return True
+
+    def test_GAN(self):
+        # sample fake data
+
+        fake = self.model.test_G(z=self.ref_z, x=self.true_pair.float(), getAvG=False, toCPU=not self.useGPU)
+        fake_avg = self.model.test_G(z=self.ref_z, x=self.true_pair.float(), getAvG=True, toCPU=not self.useGPU)
+        
+        # predict labels for fake data
+        input_D = torch.cat([self.true_ref, fake], dim=1)
+        D_fake, fake_emb = self.model.test_D(
+            input_D, output_device='cpu', get_labels=False)
+
+        input_D2 = torch.cat([self.true_ref, fake_avg], dim=1)
+        D_fake_avg, fake_avg_emb = self.model.test_D(
+            input_D2, output_device='cpu', get_labels=False)
+        
+        # predict labels for true data
+        # true, _ = self.loader.get_validation_set(len(self.ref_z), process=True)
+        input_true = torch.cat([self.true_ref, self.true_pair.float()], dim=1)
+        D_true, true_emb = self.model.test_D(
+            input_true, output_device='cpu', get_labels=False)
+
+        return D_true, true_emb.detach(), \
+               D_fake, fake_emb.detach(), \
+               D_fake_avg, fake_avg_emb.detach(), \
+               self.true_ref, fake.detach(), fake_avg.detach()
+
+    def run_tests_evaluation_and_visualization(self, scale):
+        scale_output_dir = mkdir_in_path(self.output_dir, f'scale_{scale}')
+        iter_output_dir  = mkdir_in_path(scale_output_dir, f'iter_{self.iter}')
+        from utils.utils import saveAudioBatch
+
+        _, true_emb, \
+        _, fake_emb, \
+        _, fake_avg_emb, \
+        true, fake, fake_avg = self.test_GAN()
+
+        if self.save_gen:
+            output_dir = mkdir_in_path(iter_output_dir, 'generation')
+            saveAudioBatch(
+                self.loader.postprocess(fake), 
+                path=output_dir, 
+                basename=f'gen_audio_scale_{scale}')
+
+            saveAudioBatch(
+                self.loader.postprocess(true), 
+                path=output_dir, 
+                basename=f'true_audio_scale_{scale}')
+
+        if self.vis_manager != None:
+            output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
+            self.vis_manager.set_postprocessing(
+                self.loader.get_postprocessor())
+            self.vis_manager.publish(
+                true[:5], 
+                labels=[], 
+                name=f'real_scale_{scale}', 
+                output_dir=output_dir)
+            self.vis_manager.publish(
+                fake[:5], 
+                labels=[], 
+                name=f'gen_scale_{scale}', 
+                output_dir=output_dir)
