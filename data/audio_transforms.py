@@ -1,8 +1,15 @@
+import librosa
 import numpy as np
 import torch
 from torch.nn.functional import interpolate
 from librosa.core import stft, istft, magphase, resample
 
+
+def to_torch(x):
+    if type(x) is np.ndarray:
+        return torch.from_numpy(x).float()
+    else:
+        return torch.FloatTensor(x)
 
 def complex_to_lin(x):
     return np.stack((np.real(x), np.imag(x)))
@@ -243,3 +250,118 @@ def instantaneous_freq(specgrams):
       return np.stack([mag, ifreq/np.pi])
     else:
       return ifreq
+
+
+""" From preprocessing.py, to allow pickling for multiprocessing """
+
+
+def loader(sample_rate, audio_length, x):
+    return librosa.core.load(
+        x,
+        sr=sample_rate,
+        mono=True,
+        offset=0.0,
+        duration=audio_length / sample_rate,
+        dtype=np.float32,
+        res_type='kaiser_best')[0]
+
+
+def stft(processor, x):
+    return librosa.core.stft(
+        x,
+        hop_length=getattr(processor, 'hop_size', 512),
+        win_length=getattr(processor, 'win_size', 1024),
+        n_fft=getattr(processor, 'fft_size', 1024))
+
+
+def istft(processor, x):
+    return librosa.core.istft(
+        x,
+        hop_length=getattr(processor, 'hop_size', 512),
+        win_length=getattr(processor, 'win_size', 1024))
+
+
+def zeropad(audio_length, signal):
+    if len(signal) < audio_length:
+        return np.append(
+            signal,
+            np.zeros(audio_length - len(signal))
+        )
+    else:
+        return signal
+
+
+def mel(sample_rate, hop_size, processor, x):
+    return librosa.feature.melspectrogram(
+        x.reshape(-1),
+        sr=sample_rate,
+        n_fft=getattr(processor, 'fft_size', 2048),
+        hop_length=hop_size,
+        win_length=getattr(processor, 'win_size', 1024),
+        n_mels=getattr(processor, 'n_mels', 128)
+    )
+
+
+def imel(sample_rate, hop_size, processor, x):
+    return librosa.feature.inverse.mel_to_audio(
+        x.squeeze(0),
+        sr=sample_rate,
+        n_iter=getattr(processor, 'gl_n_iter', 100),
+        n_fft=getattr(processor, 'fft_size', 2048),
+        hop_length=hop_size,
+        win_length=getattr(processor, 'win_size', 1024))
+
+
+def mfcc(sample_rate, hop_size, processor, x):
+    return librosa.feature.mfcc(
+        y=x,
+        sr=sample_rate,
+        n_fft=getattr(processor, 'fft_size', 2048),
+        n_mels=getattr(processor, 'n_mel', 128),
+        hop_length=hop_size,
+        win_length=getattr(processor, 'win_size', 1024),
+        S=None,
+        n_mfcc=getattr(processor, 'n_mfcc', 20),
+        dct_type=2,
+        norm='ortho',
+        lifter=0)
+
+
+def imfcc(sample_rate, hop_size, processor, x):
+    return librosa.feature.inverse.mfcc_to_audio(
+        x.squeeze(0),
+        n_mels=getattr(processor, 'n_mel', 128),
+        sr=sample_rate,
+        n_iter=getattr(processor, 'gl_n_iter', 100),
+        n_fft=getattr(processor, 'fft_size', 2048),
+        win_length=getattr(processor, 'win_size', 1024),
+        hop_length=hop_size,
+        dct_type=2,
+        norm='ortho',
+        ref=1.0)
+
+
+def cqt(sample_rate, hop_size, processor, x):
+    return librosa.core.cqt(
+        x,
+        sr=sample_rate,
+        hop_length=hop_size,
+        n_bins=getattr(processor, 'n_cqt', 84),
+        bins_per_octave=getattr(processor, 'bins_per_octave', 12))
+
+
+def icqt(sample_rate, hop_size, x):
+    return librosa.core.icqt(
+        x,
+        sr=sample_rate,
+        hop_length=hop_size)
+
+
+def reshape(output_shape, x):
+    return x.reshape(output_shape)
+
+
+def to_numpy(x):
+    if type(x) == np.ndarray:
+        return x
+    return x.numpy()

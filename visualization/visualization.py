@@ -7,10 +7,11 @@ import ipdb
 from plotly.graph_objs import Figure, Scatter
 from plotly.offline import plot
 
-from tools import mkdir_in_path
+from utils.utils import mkdir_in_path
 
 from .visualization_tools import plotly_classification_report, \
-    scatter_plotly, heatmap_plotly, rainbowgram_matplot, save_matplot_fig
+    scatter_plotly, heatmap_plotly, rainbowgram_matplot, save_matplot_fig, \
+    plotlyHeatmap
 
 from sklearn.metrics import precision_recall_fscore_support, confusion_matrix
 from visualization.visualization_tools import confusion_matrix_plotly, plot_prf
@@ -425,7 +426,7 @@ class AudioVisualizer(TensorVisualizer):
         win += '_spec'
         env += '_spec'
         self.update_tokens(win)
-        fig_spec = heatmap_plotly(audio, title=win + f'_{title}')
+        fig_spec = plotlyHeatmap(audio, title=win + f'_{title}')
         self.window_tokens[win] = \
             vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
         if self.save:

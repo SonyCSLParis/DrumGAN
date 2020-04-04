@@ -1,3 +1,25 @@
+import librosa.display as display
+import matplotlib.pyplot as plt
+import os
+
+import torch.nn.functional as F
+
+
+def save_spectrogram(out_dir=".", fn="spect.png", spect=None):
+    plt.clf()
+    display.specshow(spect, y_axis='linear')
+    plt.colorbar(format='%+2.0f dB')
+    plt.savefig(os.path.join(out_dir, fn))
+    #plt.clf()
+    #plt.hist(spect.flatten(), 500)
+    #plt.savefig(os.path.join(out_dir, "hist_"+fn))
+
+
+def scale_interp(x, size=0, mode='nearest'):
+    # return F.adaptive_avg_pool2d(x, output_size=size)
+    return F.interpolate(x, mode=mode, size=size)
+
+
 # def interpolate(x, y, batch=True):
 #     assert x.size() == y.size(), "real and fake must be the same size"
 #     assert x.device == y.device, "tensor are not on the same device"

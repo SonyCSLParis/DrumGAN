@@ -29,7 +29,7 @@ class GANTrainer():
                  loader=None,
                  loss_plot_i=5000,
                  eval_i=5000,
-                 saveIter=5000,
+                 save_iter=5000,
                  config=None,
                  pathAttribDict=None,
                  selectedAttributes=None,
@@ -80,7 +80,7 @@ class GANTrainer():
         self.checkPointDir = checkpoint_dir
         self.output_dir = mkdir_in_path(self.checkPointDir, 'output')
         self.modelLabel = model_name
-        self.saveIter = saveIter
+        self.saveIter = save_iter
         self.pathLossLog = None
         self.nSamples = n_samples
         self.save_gen = save_gen
@@ -210,26 +210,30 @@ class GANTrainer():
 
             tmpPathLossLog = tmpConfig.get("lossLog", None)
 
-        if tmpPathLossLog is None:
-            self.lossProfile = [
-                {"iter": [], "scale": self.startScale}]
-        elif not os.path.isfile(tmpPathLossLog):
-            print("WARNING : couldn't find the loss logs at " +
-                  tmpPathLossLog + " resetting the losses")
-            self.lossProfile = [
-                {"iter": [], "scale": self.startScale}]
-        else:
-            self.lossProfile = pkl.load(open(tmpPathLossLog, 'rb'))
-            self.lossProfile = self.lossProfile[:(self.startScale + 1)]
-            if self.lossProfile[-1]["iter"][-1] > self.startIter:
-                indexStop = next(x[0] for x in enumerate(self.lossProfile[-1]["iter"])
-                                 if x[1] > self.startIter)
-                self.lossProfile[-1]["iter"] = self.lossProfile[-1]["iter"][:indexStop]
+        try:
+            if tmpPathLossLog is None:
+                self.lossProfile = [
+                    {"iter": [], "scale": self.startScale}]
+            elif not os.path.isfile(tmpPathLossLog):
+                print("WARNING : couldn't find the loss logs at " +
+                      tmpPathLossLog + " resetting the losses")
+                self.lossProfile = [
+                    {"iter": [], "scale": self.startScale}]
+            else:
+                self.lossProfile = pkl.load(open(tmpPathLossLog, 'rb'))
+                self.lossProfile = self.lossProfile[:(self.startScale + 1)]
+                if self.lossProfile[-1]["iter"][-1] > self.startIter:
+                    indexStop = next(x[0] for x in enumerate(self.lossProfile[-1]["iter"])
+                                     if x[1] > self.startIter)
+                    self.lossProfile[-1]["iter"] = self.lossProfile[-1]["iter"][:indexStop]
 
-                for item in self.lossProfile[-1]:
-                    if isinstance(self.lossProfile[-1][item], list):
-                        self.lossProfile[-1][item] = \
-                            self.lossProfile[-1][item][:indexStop]
+                    for item in self.lossProfile[-1]:
+                        if isinstance(self.lossProfile[-1][item], list):
+                            self.lossProfile[-1][item] = \
+                                self.lossProfile[-1][item][:indexStop]
+        except:
+            self.lossProfile = [
+                {"iter": [], "scale": self.startScale}]
 
         # Read the training configuration
         if not finetune:
@@ -369,6 +373,7 @@ class GANTrainer():
             be stopped
         """
         with tqdm(dbLoader, desc='Iter-loop') as t:
+
             for inputs_real, labels in t:
                 # if inputs_real.size()[0] < self.getMiniBatchSize(scale):
                 #     continue
@@ -500,5 +505,5 @@ class GANTrainer():
             self.vis_manager.publish(
                 fake[:5], 
                 labels=D_fake[0][:5], 
-                name=f'fake_scale_{scale}', 
+                name=f'gen_scale_{scale}', 
                 output_dir=output_dir)

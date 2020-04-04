@@ -117,8 +117,9 @@ class DataLoader(ABC, data.Dataset):
 
     def preprocess_data(self):
         print("Preprocessing data...")
-
-        self.data = list(map(self.preprocessing, 
+        import multiprocessing
+        p = multiprocessing.Pool(multiprocessing.cpu_count())
+        self.data = list(p.map(self.preprocessing,
                         tqdm(self.data, desc='preprocessing-loop')))
         print("Data preprocessing done")
 

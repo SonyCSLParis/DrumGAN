@@ -1,6 +1,8 @@
-output_networks/*
+output-networks/*
+config_files/*
 *.pyc
 .DS_Store
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

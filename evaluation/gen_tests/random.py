@@ -32,6 +32,6 @@ def generate(parser):
 
     saveAudioBatch(audio_out,
                    path=output_dir,
-                   basename='test_random', 
+                   basename='test_random',
                    sr=config["transform_config"]["sample_rate"])
     print("FINISHED!\n")

@@ -1,33 +1,28 @@
 {
-    "name": "DCGAN_waveform_test_config",
+    "name": "MP3_to_WAV_Mallet_Sanity2",
     "comments": "test",
-    "output_path": "/Users/javier/Developer/gans/audio-gan-lib/output-networks",
+    "output_path": "output_networks",
     "loader_config": {
-        "dbname": "nsynth",
-        "data_path": "/Users/javier/Developer/datasets/nsynth-train/audio/",
-        "attribute_file": "/Users/javier/Developer/datasets/nsynth-train/examples.json",
-        "filter_attributes": {
-            "instrument_source_str": ["acoustic"],
-            "instrument_family_str": ["mallet", "flute", "vocals"]
+        "dbname": "mp3towav",
+        "data_path": "/Users/javier/Developer/datasets/mp3-to-wav_TEST/wav/",
+        "data_path2": "/Users/javier/Developer/datasets/mp3-to-wav_TEST/mp3/",
+        "criteria": {
+            "size": 100
         },
-        "shuffle": false,
-        "attributes": ["pitch", "velocity", "instrument_family_str"],
-        "balance_attribute": "instrument_family_str",
-        "pitch_range": [40, 70],
-        "freqs": [20, 40, 50, 100, 200, 300],
-        "load_metadata": true,
-        "size": 1000
+        "shuffle": true,
+        "load_metadata": true
+        
     },
         
     "transform_config": {
-        "transform": "waveform",
+        "transform": "specgrams",
         "fade_out": true,
         "fft_size": 1024,
         "win_size": 1024,
         "n_frames": 64,
         "hop_size": 256,
-        "log": false,
-        "ifreq": false,
+        "log_mag": true,
+        "ifreq": true,
         "sample_rate": 16000,
         "audio_length": 16000
     },
@@ -35,8 +30,10 @@
         "formatLayerType": "default",
         "ac_gan": false,
         "downSamplingFactor": [
-            [16, 16],
-            [8, 8],
+            [1, 1],
+            [2, 2],
+            [4, 4],
+            [8, 4],
             [4, 4],
             [2, 2],
             [1, 1]
@@ -47,10 +44,14 @@
             50,
             50,
             50,
-            50
+            50,
+            50,
+            15000
         ],
         "alphaJumpMode": "linear",
         "alphaNJumps": [
+            600,
+            600,
             600,
             600,
             600,
@@ -62,38 +63,46 @@
             32,
             32,
             32,
+            32,
+            32,
             32
         ],
         "transposed": false,
         "depthScales": [
-            5,
-            5,
-            5,
-            5,
-            5
+            [64, 32],
+            [64, 32],
+            [64, 32],
+            [64, 32],
+            [64, 32],
+            [64, 32],
+            [64, 32]
         ],
         "miniBatchSize": [
-            2,
-            2,
-            2,
-            2,
-            2
+            20,
+            20,
+            20,
+            20,
+            20,
+            20,
+            16
         ],
-        "dimLatentVector": 2,
+        "n_mlp": 4,
+        "dimLatentVector": 4,
         "perChannelNormalization": true,
         "lossMode": "WGANGP",
-        "lambdaGP": 10.0,
+        "lambdaGP": 50.0,
         "leakyness": 0.02,
         "miniBatchStdDev": true,
-        "baseLearningRate": 0.0006,
-        "dimOutput": 1,
+        "baseLearningRate": [0.001, 0.0001],
+        "dimOutput": 2,
         "weightConditionG": 0.0,
         "weightConditionD": 0.0,
+        "noise_injection": false,
         "attribKeysOrder": {
             "pitch": 0,
             "instrument_family": 1
         },
-        "startScale": 0,
+        "startScale": 6,
         "skipAttDfake": []
     }
 }

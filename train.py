@@ -14,10 +14,12 @@ from utils.config import update_parser_with_config, get_config_override_from_par
 from gans import ProgressiveGANTrainer
 from data.preprocessing import AudioProcessor
 
+from data.loaders import get_data_loader
+
 from datetime import datetime
 import ipdb
-
 from visualization import getVisualizer
+
 
 if __name__ == "__main__":
 
@@ -39,7 +41,7 @@ if __name__ == "__main__":
     parser.add_argument('-s', '--save_iter', help="If it applies, frequence at\
                         which a checkpoint should be saved. In the case of a\
                         evaluation test, iteration to work on.",
-                        type=int, dest="save_i", default=50000)
+                        type=int, dest="save_i", default=1000)
     parser.add_argument('-e', '--eval_iter', help="If it applies, frequence at\
                         which evaluation is run", 
                         type=int, dest="eval_i", default=-1)
@@ -59,6 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('--visdom', action='store_true',
                         help=' If a checkpoint is detected, do not try to load it')
 
+    torch.autograd.set_detect_anomaly(True)
     # Parse command line args
     args, unknown = parser.parse_known_args()
     # Initialize random seed
@@ -105,7 +108,8 @@ if __name__ == "__main__":
     # configure loader
     loader_config = config['loader_config']
     dbname = loader_config.pop('dbname', args.dataset)
-    loader_module = get_loader(dbname)
+
+    loader_module = get_data_loader(dbname)
 
     loader = loader_module(dbname=dbname + '_' + transform_config['transform'],
                            output_path=checkpoint_dir, 

@@ -1,9 +1,12 @@
+from functools import partial
 import torch
 
 from .audio_transforms import complex_to_lin, lin_to_complex, \
     RemoveDC, Compose, mag_to_complex, AddDC, safe_log_spec, \
     safe_exp_spec, mag_phase_angle, norm_audio, fold_cqt, \
-    unfold_cqt, fade_out, instantaneous_freq, inv_instantanteous_freq
+    unfold_cqt, fade_out, instantaneous_freq, inv_instantanteous_freq, mel, \
+    imel, reshape, to_numpy, mfcc, imfcc, cqt, icqt, loader, zeropad, stft, \
+    istft, to_torch
 
 from nsgt import NSGT, LogScale, LinScale, MelScale, OctScale
 import numpy as np
@@ -91,7 +94,7 @@ class AudioProcessor(DataProcessor):
         # Domain specific transforms
         assert transform in self.AUDIO_TRANSFORMS, \
             f"Transform '{transform}' not in {self.AUDIO_TRANSFORMS}"
-        print(f"Configurign {transform} transform...")
+        print(f"Configuring {transform} transform...")
         self.transform = transform
         {
             "waveform":  self.build_waveform_pipeline,
@@ -143,36 +146,10 @@ class AudioProcessor(DataProcessor):
         self._add_rm_dc()
         self._add_log_mag()
         self._add_ifreq()
-        self._add_to_torch()
+        # self._add_to_torch()
         self.output_shape = (2, self.n_bins, self.n_frames)
 
     def build_mel_pipeline(self):
-        def mel(x):
-            return librosa.feature.melspectrogram(
-                x.reshape(-1),
-                sr=self.sample_rate,
-                n_fft=getattr(self, 'fft_size', 2048),
-                hop_length=self.hop_size,
-                win_length=getattr(self, 'win_size', 1024),
-                n_mels=getattr(self, 'n_mels', 128)
-            )
-
-        def imel(x):
-            return librosa.feature.inverse.mel_to_audio(
-                x.squeeze(0),
-                sr=self.sample_rate,
-                n_iter=getattr(self, 'gl_n_iter', 100),
-                n_fft=getattr(self, 'fft_size', 2048),
-                hop_length=self.hop_size,
-                win_length=getattr(self, 'win_size', 1024))
-
-        def reshape(x):
-            return x.reshape(self.output_shape)
-
-        def to_numpy(x):
-            if type(x) == np.ndarray:
-                return x
-            return x.numpy()
 
         self._init_stft_params()
 
@@ -182,22 +159,19 @@ class AudioProcessor(DataProcessor):
         self._add_signal_zeropadding()
         self._add_fade_out()
         self._add_norm()
-        self.pre_pipeline.append(mel)
-        self.post_pipeline.insert(0, imel)
+        self.pre_pipeline.append(partial(mel, self.sample_rate, self.hop_size,
+                                         self))
+        self.post_pipeline.insert(0, partial(imel, self.sample_rate,
+                                             self.hop_size, self))
         self.pre_pipeline.append(reshape)
-        self.post_pipeline.insert(0, reshape)
+
+        self.post_pipeline.insert(0, partial(reshape, self.output_shape))
         self._add_to_torch()
+
         # self._add_log_mag()
         self.post_pipeline.insert(0, to_numpy)
 
     def build_mfcc_pipeline(self):
-        def reshape(x):
-            return x.reshape(self.output_shape)
-
-        def to_numpy(x):
-            if type(x) == np.ndarray:
-                return x
-            return x.numpy()
 
         self._init_stft_params()
         self._add_audio_loader()
@@ -205,36 +179,12 @@ class AudioProcessor(DataProcessor):
         self._add_fade_out()
         self._add_norm()
 
-        def mfcc(x):
-            return librosa.feature.mfcc(
-                y=x,
-                sr=self.sample_rate,
-                n_fft=getattr(self, 'fft_size', 2048),
-                n_mels=getattr(self, 'n_mel', 128),
-                hop_length=self.hop_size,
-                win_length=getattr(self, 'win_size', 1024),
-                S=None,
-                n_mfcc=getattr(self, 'n_mfcc', 20),
-                dct_type=2,
-                norm='ortho',
-                lifter=0)
-
-        def imfcc(x):
-            return librosa.feature.inverse.mfcc_to_audio(
-                x.squeeze(0),
-                n_mels=getattr(self, 'n_mel', 128),
-                sr=self.sample_rate,
-                n_iter=getattr(self, 'gl_n_iter', 100),
-                n_fft=getattr(self, 'fft_size', 2048),
-                win_length=getattr(self, 'win_size', 1024),
-                hop_length=self.hop_size,
-                dct_type=2,
-                norm='ortho',
-                ref=1.0)
-
-        self.pre_pipeline.append(mfcc)
-        self.post_pipeline.insert(0, imfcc)
+        self.pre_pipeline.append(partial(mfcc, self.sample_rate, self.hop_size,
+                                         self))
+        self.post_pipeline.insert(0, partial(imfcc, self.sample_rate, self.hop_size,
+                                         self))
         self._add_to_torch()
+
 
         self.output_shape = (1, getattr(self, 'n_mfcc', 128), self.n_frames)
 
@@ -243,22 +193,6 @@ class AudioProcessor(DataProcessor):
         self.post_pipeline.insert(0, to_numpy)
 
     def build_cqt_pipeline(self):
-        def reshape(x):
-            return x.reshape(self.output_shape)
-
-        def cqt(x):
-            return librosa.core.cqt(
-                x,
-                sr=self.sample_rate,
-                hop_length=self.hop_size,
-                n_bins=getattr(self, 'n_cqt', 84),
-                bins_per_octave=getattr(self, 'bins_per_octave', 12))
-
-        def icqt(x):
-            return librosa.core.icqt(
-                x,
-                sr=self.sample_rate,
-                hop_length=self.hop_size)
 
         self._init_stft_params()
         self._add_audio_loader()
@@ -266,8 +200,10 @@ class AudioProcessor(DataProcessor):
         self._add_fade_out()
         self._add_norm()
 
-        self.pre_pipeline.append(cqt)
-        self.post_pipeline.insert(0, icqt)
+        self.pre_pipeline.append(partial(cqt, self.sample_rate, self.hop_size,
+                                         self))
+        self.post_pipeline.insert(0, partial(icqt, self.sample_rate,
+                                             self.hop_size))
         self._add_mag_phase()
         self._add_log_mag()
         self._add_ifreq()
@@ -316,24 +252,12 @@ class AudioProcessor(DataProcessor):
 
 
     def _add_to_torch(self):
-        def to_torch(x):
-            if type(x) is np.ndarray:
-                return torch.from_numpy(x).float()
-            else:
-                return torch.FloatTensor(x)
-        self.pre_pipeline.append(to_torch)
+
+        self.pre_pipeline.append(partial(to_torch))
 
     def _add_audio_loader(self):
-        def loader(x):
-            return librosa.core.load(
-                x,
-                sr=self.sample_rate,
-                mono=True,
-                offset=0.0,
-                duration=self.audio_length / self.sample_rate,
-                dtype=np.float32,
-                res_type='kaiser_best')[0]
-        self.pre_pipeline.append(loader)
+        self.pre_pipeline.append(partial(loader, self.sample_rate,
+                                         self.audio_length))
 
     def _add_fade_out(self):
         # Common transforms
@@ -349,15 +273,7 @@ class AudioProcessor(DataProcessor):
         self.post_pipeline.insert(0, lin_to_complex)
 
     def _add_signal_zeropadding(self):
-        def zeropad(signal):
-            if len(signal) < self.audio_length:
-                return np.append(
-                    signal,
-                    np.zeros(self.audio_length - len(signal))
-                )
-            else:
-                return signal
-        self.pre_pipeline.append(zeropad)
+        self.pre_pipeline.append(partial(zeropad, self.audio_length))
 
     def _init_stft_params(self):
         if not hasattr(self, 'hop_size'):
@@ -369,20 +285,8 @@ class AudioProcessor(DataProcessor):
         self.n_bins = int(getattr(self, 'fft_size', 2048) / 2)
 
     def _add_stft(self):
-        def stft(x):
-            return librosa.core.stft(
-                    x,
-                    hop_length=getattr(self, 'hop_size', 512),
-                    win_length=getattr(self, 'win_size', 1024),
-                    n_fft=getattr(self, 'fft_size', 1024))
-
-        def istft(x):
-            return librosa.core.istft(
-                    x,
-                    hop_length=getattr(self, 'hop_size', 512),
-                    win_length=getattr(self, 'win_size', 1024))
-        self.pre_pipeline.append(stft)
-        self.post_pipeline.insert(0, istft)
+        self.pre_pipeline.append(partial(stft, self))
+        self.post_pipeline.insert(0, partial(istft, self))
 
     def _add_mag_phase(self):
         # Add complex to mag/ph transform

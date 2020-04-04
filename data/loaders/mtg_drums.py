@@ -43,40 +43,45 @@ class MTGDrums(AudioDataLoader):
                 else:
                     file_metadata.append(val)
                 if att not in self.attribute_val_dict:
-                    self.attribute_val_dict[att] = ['0', '1', '2', '3', '4']
+                    self.attribute_val_dict[att] = [0, 1, 2, 3, 4]
 
             if any(np.isnan(file_metadata)):
                 print(f"File {file_path} contains nan values. Skipping...")
                 continue
-            self.metadata.append(file_metadata)
+            self.metadata.append(torch.Tensor(file_metadata))
             self.data.append(file_path)
             if len(self.data) == self.size: break
+        self.metadata = torch.stack(self.metadata)
         self.normalize_metadata()
         self.count_attributes()
+
+    def get_validation_set(self, batch_size=None):
+        if batch_size is None:
+            batch_size = len(self.val_data)
+        return self.val_data[:batch_size], self.val_labels[:batch_size].type(torch.LongTensor)
 
     def count_attributes(self):
         self.att_count = {}
         for i, att in enumerate(self.attributes):
-            self.att_count[att] = list(np.unique(self.metadata.T[i], return_counts=True)[1])
+            self.att_count[att] = np.unique(self.metadata.t()[i], return_counts=True)[1]
 
     def getKeyOrders(self):
         return {att: {"order": i, "values": self.attribute_val_dict[att]} for i, att in enumerate(self.attributes)}
 
     def normalize_metadata(self):
-        self.metadata = np.array(self.metadata)
-        _max = np.max(self.metadata, axis=0)
-        _min = np.min(self.metadata, axis=0)
+        _max = self.metadata.max(dim=0)[0]
+        _min = self.metadata.min(dim=0)[0]
         self.metadata = (self.metadata - _min) / (_max - _min)
-        self.metadata = (self.metadata / 0.25).round().astype(int)
+        self.metadata = (self.metadata / 0.25).round().int()
 
-    def index_to_labels(self, index_batch):
-        if type(index_batch) is np.ndarray:
-            return index_batch.astype(str)
-        return index_batch.numpy().astype(str)
+    def index_to_labels(self, index_batch, transpose=False):
+        if transpose:
+            return index_batch.t()
+        return index_batch
 
     def __getitem__(self, index):
 
         if self.getitem_processing is None:
             return self.data[index], torch.LongTensor(self.metadata[index])
         else:
-            return self.getitem_processing(self.data[index]), torch.LongTensor(self.metadata[index])
+            return self.getitem_processing(self.data[index]), self.metadata[index].type(torch.LongTensor)
