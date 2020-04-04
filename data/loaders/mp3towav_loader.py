@@ -50,13 +50,6 @@ class MP3ToWAV(AudioPairsLoader):
         else:
             return None
 
-    def get_random_labels(self, size):
-        ipdb.set_trace()
-        return None
-
-    def index_to_labels(self, **args):
-        return None
-
     def preprocess_data(self):
         import multiprocessing
         p = multiprocessing.Pool(multiprocessing.cpu_count())
@@ -69,6 +62,16 @@ class MP3ToWAV(AudioPairsLoader):
         self.metadata = list(p.map(preprocess_,
                             tqdm(self.metadata, desc='preprocessing-loop')))
         print("Data preprocessing done")
+
+    def get_validation_set(self, batch_size=None, process=False):
+        if batch_size is None:
+            batch_size = len(self.val_data)
+        val_batch = self.val_data[:batch_size]
+        val_label_batch = self.val_labels[:batch_size]
+        if process:
+            val_batch = \
+                torch.stack([self.getitem_processing(v) for v in val_batch])
+        return torch.Tensor(val_batch).float(), torch.Tensor(val_label_batch).float()
 
     def load_data(self):
         files = list_files_abs_path(self.data_path, 'wav')

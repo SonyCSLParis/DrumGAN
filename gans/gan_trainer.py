@@ -505,5 +505,5 @@ class GANTrainer():
             self.vis_manager.publish(
                 fake[:5], 
                 labels=D_fake[0][:5], 
-                name=f'fake_scale_{scale}', 
+                name=f'gen_scale_{scale}', 
                 output_dir=output_dir)
