@@ -226,6 +226,7 @@ class TStyledDNet(DNet):
         args['miniBatchNormalization'] = False
         self.uNet = False
         DNet.__init__(self, **args)
+        self.selu = nn.SELU()
 
     def initScale0Layer(self):
         # Minibatch standard deviation
@@ -256,7 +257,7 @@ class TStyledDNet(DNet):
         x = self.leakyRelu(self.fromRGBLayers[-1](x))
 
         #x = shift_maps(x)
-        x = add_grad_map(x)
+        #x = add_grad_map(x)
 
         # Caution: we must explore the layers group in reverse order !
         # Explore all scales before 0
@@ -264,18 +265,25 @@ class TStyledDNet(DNet):
         shift = len(self.fromRGBLayers) - 2
         nScales = len(self.fromRGBLayers) - 1
 
+        padding = 1
+
         outs = []
         if self.uNet:
             outs.append(x)
 
         for i, groupLayer in enumerate(reversed(self.scaleLayers)):
             if i > 6:
+
+                x = F.pad(x, [padding] * 4, mode="reflect")
+
                 for layer in groupLayer:
                     x = self.leakyRelu(layer(x))
                 #x = scale_interp(x, size=self.inputSizes[shift], mode="bilinear")
 
+                x = F.pad(x, [-padding] * 4)
+
                 x = pool(x)
-                x = add_grad_map(x)
+                #x = add_grad_map(x)
 
                 if self.uNet and i >= nScales // 2:
                     try:
@@ -287,9 +295,9 @@ class TStyledDNet(DNet):
                     outs.append(x)
 
                 shift -= 1
-       
-       # Now the scale 0
-       # Minibatch standard deviation
+
+        # Now the scale 0
+        # Minibatch standard deviation
         if self.miniBatchNormalization:
             x = miniBatchStdDev(x)
 
