@@ -10,7 +10,7 @@
         "load_metadata": true,
         "size": 20000
     },
-        
+
     "transform_config": {
         "transform": "specgrams",
         "fade_out": true,

@@ -4,9 +4,10 @@ import torch.nn.functional as F
 
 import ipdb
 
-from .custom_layers import EqualizedConv2d, EqualizedLinear,\
+from .custom_layers import EqualizedConv2d, EqualizedLinear, \
     NormalizationLayer, Upscale2d, AudioNorm, \
-    StyledConv2DBlock, Conv2DBlock, ConstantInput2D, GANsynthInitFormatLayer
+    StyledConv2DBlock, Conv2DBlock, ConstantInput2D, GANsynthInitFormatLayer, \
+    StyledConv2DBlockShallow
 from utils.utils import num_flat_features
 from .mini_batch_stddev_module import miniBatchStdDev
 from .progressive_conv_net import DNet
@@ -144,7 +145,7 @@ class TStyledGNet(StyledGNet):
             depthNewScale = depthNewScale[0]
         depthLastScale = self.scalesDepth[-1]
         self.scalesDepth.append(depthNewScale) 
-        self.scaleLayers.append(StyledConv2DBlock(
+        self.scaleLayers.append(StyledConv2DBlockShallow(
                                                 in_channel=depthLastScale,
                                                 out_channel=depthNewScale,
                                                 kernel_size=self.kernelSize, 
@@ -169,6 +170,7 @@ class TStyledGNet(StyledGNet):
                 scale=0, 
                 mean_style=None, 
                 style_weight=0):
+        # Generator
 
         x_copy = input_x.clone()
         step = len(self.toRGBLayers) - 1

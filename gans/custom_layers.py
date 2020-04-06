@@ -534,6 +534,38 @@ class StyledConv2DBlock(nn.Module):
         return out
 
 
+class StyledConv2DBlockShallow(nn.Module):
+    """
+
+    """
+    def __init__(self, in_channel, out_channel, kernel_size=3, transposed=False,
+                 padding=1, style_dim=512, init_size=0, noise_injection=True):
+        super().__init__()
+        self.noise_injection = noise_injection
+        self.conv1 = EqualizedConv2d(in_channel,
+                                     out_channel,
+                                     kernel_size,
+                                     padding=padding,
+                                     transposed=transposed)
+
+        if noise_injection:
+            self.noise1 = EqualizedNoiseInjection2D(out_channel)
+        else:
+            self.noise1 = DummyBlock()
+
+        self.adain1 = AdaptiveInstanceNorm2D(out_channel, style_dim)
+        self.lrelu1 = nn.LeakyReLU(0.2)
+
+    def forward(self, input, style, noise):
+
+        out = self.conv1(input)
+        if self.noise_injection:
+            out = self.noise1(out, noise)
+        out = self.adain1(out, style)
+        out = self.lrelu1(out)
+
+        return out
+
 
 class GANsynthInitFormatLayer(nn.Module):
     def __init__(self, 
