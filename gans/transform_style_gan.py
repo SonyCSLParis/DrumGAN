@@ -110,7 +110,7 @@ class TStyleGAN(ProgressiveGAN):
         if self.lossDslidingAvg < -1000:
             self.config.learningRate[1] = 0.00003
         else:
-            self.config.learningRate[1] = 0.0005
+            self.config.learningRate[1] = 0.00003
 
         print(f"\nSlidingAvg = {self.lossDslidingAvg}")
         print(f"LearningRateD = {self.config.learningRate[1]}")

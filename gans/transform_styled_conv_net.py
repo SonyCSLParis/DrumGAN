@@ -191,10 +191,14 @@ class TStyledGNet(StyledGNet):
         out = add_grad_map(out)
         #out = shift_maps(out)
 
+        padding = 3
+
         outs = []
 
         for i, (conv, to_rgb) in enumerate(zip(self.scaleLayers, self.toRGBLayers)):
+            out = F.pad(out, [padding] * 4, mode="reflect")
             out = conv(out, style, noise[i])
+            out = F.pad(out, [-padding] * 4, mode="reflect")
 
             out = scale_interp(out, size=self.outputSizes[i])
             out = add_grad_map(out)
@@ -265,7 +269,7 @@ class TStyledDNet(DNet):
         shift = len(self.fromRGBLayers) - 2
         nScales = len(self.fromRGBLayers) - 1
 
-        padding = 1
+        padding = 4
 
         outs = []
         if self.uNet:
