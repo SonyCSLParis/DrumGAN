@@ -49,8 +49,8 @@ class DataLoader(ABC, data.Dataset):
         self.postprocessing = postprocessing
 
         # data/metadata attributes
-        # self.data, self.metadata = self.load_dataset()
-        self.data, self.metadata, self.header = self.load_data()
+        # self.data, self.metadata, self.header = self.load_data()
+        self.load_data()
         self.dbname = f'{dbname}_{self.__hash__()}'
         self.output_path = mkdir_in_path(os.path.expanduser(output_path), dbname)
 
@@ -85,13 +85,8 @@ class DataLoader(ABC, data.Dataset):
 
 
     def init_dataset(self):
-        # # read data
-        # self.read_data()
-        # # shuffle data
         if self.shuffle: 
             self.shuffle_data()
-
-        
         # preprocess data
         if self.preprocess:
             # check preprocessing is not None
@@ -111,8 +106,7 @@ class DataLoader(ABC, data.Dataset):
         for i, att_dict in enumerate(self.header['attributes'].values()):
             labels[:, i] = torch.multinomial(
                 torch.Tensor(list(att_dict['count'].values())),
-                batch_size, replacement=True
-            )
+                batch_size, replacement=True)
         return labels
 
     def preprocess_data(self):

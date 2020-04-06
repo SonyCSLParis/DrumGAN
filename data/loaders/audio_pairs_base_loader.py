@@ -30,8 +30,83 @@ class AudioPairsLoader(AudioDataLoader, ABC):
 
         self.data_path2 = data_path2
         AudioDataLoader.__init__(self, **kargs)
+    # @abstractmethod
+    # def get_pair(self):
+    #     raise NotImplementedError
 
-    @abstractmethod
-    def get_pair(self):
-        raise NotImplementedError
+    def __getitem__(self, index):
+        if self.getitem_processing:
+            return self.getitem_processing(self.data_x[index]),\
+                   self.getitem_processing(self.data_y[index])
+        else:
+            return self.data_x[index], self.data_y[index]
+    
+    def __len__(self):
+        return len(self.data_x)
+
+    def get_random_labels(self, batch_size):
+        raise NotImplementedError(
+            "AudioPairsLoader cannot load randomly generated pair")
+
+    def preprocess_data(self):
+        print("Preprocessing data...")
+        import multiprocessing
+        p = multiprocessing.Pool(multiprocessing.cpu_count())
+        self.data_x, self.data_y = list(zip(*self.data))
+        self.data_x = list(p.map(self.preprocessing,
+            tqdm(self.data_x, desc='preprocessing-x')))
+        
+        self.data_y = list(map(self.preprocessing,
+            tqdm(self.data_y, desc='preprocessing-loop')))
+        # uncomment for parallel processing of pair data (not working localluy)
+        # self.data_y = list(p.map(self.preprocessing,
+        #     tqdm(self.data_y, desc='preprocessing-loop')))
+
+        print("Data preprocessing done")
+
+    def shuffle_data(self):
+        shuffle(self.data)
+
+    def index_to_labels(self, batch, transpose=False):
+        labels = torch.zeros_like(batch).tolist()
+        for i, att_dict in enumerate(self.header['attributes'].values()):
+            for j, idx in enumerate(batch[:, i]):
+                labels[j][i] = att_dict['values'][idx]
+        if transpose:
+            return list(zip(*labels))
+        return labels
+
+    def train_val_split(self, tr_val_split=0.9):
+        assert len(self.data) > 0, "tr/val split: No loaded data yet"
+        if not self.shuffle:
+            print("WARNING: splitting train/val data without shuffling!")
+
+        tr_size = int(np.floor(len(self.data) * tr_val_split))
+        val_size = int(np.ceil(len(self.data) * (1 - tr_val_split)))
+
+        self.val_data_x = self.data_x[-val_size:]
+        self.val_data_y = self.data_y[-val_size:]
+        self.tr_data_x = self.data_x[:tr_size]
+        self.tr_data_y = self.data_y[:tr_size]
+
+        del self.data_x
+        del self.data_y
+        self.data_x = self.tr_data_x
+        self.data_y = self.tr_data_y
+        del self.tr_data_x
+        del self.tr_data_y
+        del self.data
+
+    def get_validation_set(self, batch_size=None, process=False):
+        if batch_size is None:
+            batch_size = len(self.val_data_x)
+        val_batch_x = self.val_data_x[:batch_size]
+        val_batch_y = self.val_data_y[:batch_size]
+        if process:
+            val_batch_x = \
+                torch.stack([self.getitem_processing(v) for v in val_batch_x])
+            val_batch_y = \
+                torch.stack([self.getitem_processing(v) for v in val_batch_y])
+        
+        return val_batch_x, val_batch_y
 
