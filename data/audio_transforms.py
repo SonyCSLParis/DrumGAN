@@ -5,6 +5,12 @@ from torch.nn.functional import interpolate
 from librosa.core import stft, istft, magphase, resample
 
 
+def to_torch(x):
+    if type(x) is np.ndarray:
+        return torch.from_numpy(x).float()
+    else:
+        return torch.FloatTensor(x)
+
 def complex_to_lin(x):
     return np.stack((np.real(x), np.imag(x)))
 

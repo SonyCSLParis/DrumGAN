@@ -1,17 +1,20 @@
 from functools import partial
+import torch
 
 from .audio_transforms import complex_to_lin, lin_to_complex, \
     RemoveDC, Compose, mag_to_complex, AddDC, safe_log_spec, \
     safe_exp_spec, mag_phase_angle, norm_audio, fold_cqt, \
     unfold_cqt, fade_out, instantaneous_freq, inv_instantanteous_freq, mel, \
     imel, reshape, to_numpy, mfcc, imfcc, cqt, icqt, loader, zeropad, stft, \
-    istft
+    istft, to_torch
 
 from nsgt import NSGT, LogScale, LinScale, MelScale, OctScale
 import numpy as np
 import librosa
 
 
+import hashlib
+import ipdb
 # TO-DO: add function to get the output of the pipelin
 # on intermediate positions
 
@@ -43,6 +46,16 @@ class DataProcessor(object):
 
     def __call__(self, x):
         return self.get_preprocessor()(x)
+
+    def __hash__(self):
+        hash_list = []
+        keys = list(self.__dict__.keys())
+        keys.sort()
+        for k in keys:
+            if k not in ['pre_pipeline', 'post_pipeline']:
+                hash_list.append((k, self.__dict__[k]))
+        return hashlib.sha1(str(hash_list).encode()).hexdigest()
+
     def set_atts(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -98,6 +111,7 @@ class AudioProcessor(DataProcessor):
         self._add_signal_zeropadding()
         self._add_fade_out()
         self._add_norm()
+        self._add_to_torch()
         self.output_shape = (1, 1, self.audio_length)
 
         def in_reshape(x):
@@ -118,6 +132,7 @@ class AudioProcessor(DataProcessor):
         self._add_stft()
         self._complex_to_lin()
         self._add_rm_dc()
+        self._add_to_torch()
         self.output_shape = (2, self.n_bins, self.n_frames)
 
     def build_specgrams_pipeline(self):
@@ -131,6 +146,7 @@ class AudioProcessor(DataProcessor):
         self._add_rm_dc()
         self._add_log_mag()
         self._add_ifreq()
+        # self._add_to_torch()
         self.output_shape = (2, self.n_bins, self.n_frames)
 
     def build_mel_pipeline(self):
@@ -148,7 +164,9 @@ class AudioProcessor(DataProcessor):
         self.post_pipeline.insert(0, partial(imel, self.sample_rate,
                                              self.hop_size, self))
         self.pre_pipeline.append(reshape)
+
         self.post_pipeline.insert(0, partial(reshape, self.output_shape))
+        self._add_to_torch()
 
         # self._add_log_mag()
         self.post_pipeline.insert(0, to_numpy)
@@ -165,6 +183,8 @@ class AudioProcessor(DataProcessor):
                                          self))
         self.post_pipeline.insert(0, partial(imfcc, self.sample_rate, self.hop_size,
                                          self))
+        self._add_to_torch()
+
 
         self.output_shape = (1, getattr(self, 'n_mfcc', 128), self.n_frames)
 
@@ -187,7 +207,7 @@ class AudioProcessor(DataProcessor):
         self._add_mag_phase()
         self._add_log_mag()
         self._add_ifreq()
-
+        self._add_to_torch()
         self.output_shape = (2, getattr(self, 'n_cqt', 84), self.n_frames)
         self.pre_pipeline.append(reshape)
         self.post_pipeline.insert(0, reshape)
@@ -229,6 +249,11 @@ class AudioProcessor(DataProcessor):
             self.pre_pipeline.append(fold_cqt)
             self.post_pipeline.insert(0, unfold_cqt)
             self.output_shape = (4, int(self.n_bins/2), int(self.n_frames))
+
+
+    def _add_to_torch(self):
+
+        self.pre_pipeline.append(partial(to_torch))
 
     def _add_audio_loader(self):
         self.pre_pipeline.append(partial(loader, self.sample_rate,

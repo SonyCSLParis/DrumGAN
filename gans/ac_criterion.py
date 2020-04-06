@@ -62,21 +62,19 @@ class ACGANCriterion:
         self.inputDict = deepcopy(attribKeysOrder)
         self.skipAttDfake = skipAttDfake
 
-        for key in attribKeysOrder:
-            order = attribKeysOrder[key]["order"]
-            self.keyOrder[order] = key
-            self.attribSize[order] = len(attribKeysOrder[key]["values"])
+        self.keyOrder = list(attribKeysOrder.keys())
+        self.attribSize = [len(attribKeysOrder[k]["values"]) for k in attribKeysOrder]
+        
+        for i, key in enumerate(attribKeysOrder):
             self.labelsOrder[key] = {index: label for label, index in
                                      enumerate(attribKeysOrder[key]["values"])}
 
         self.labelWeights = torch.tensor(
             [1.0 for x in range(self.getInputDim())])
 
-        for key in attribKeysOrder:
-            order = attribKeysOrder[key]["order"]
+        for i, key in enumerate(attribKeysOrder):
             if attribKeysOrder[key].get('weights', None) is not None:
-                shift = sum(self.attribSize[:order])
-
+                shift = sum(self.attribSize[:i])
                 for value, weight in attribKeysOrder[key]['weights'].items():
                     self.labelWeights[shift +
                                       self.labelsOrder[key][value]] = weight
@@ -91,7 +89,6 @@ class ACGANCriterion:
         for i in range(self.nAttrib):
             C = self.attribSize[i]
             key = self.keyOrder[i]
-
             if key in labels:
                 value = labels[key]
                 index = self.labelsOrder[key][value]
@@ -194,10 +191,11 @@ class ACGANCriterion:
             tmp = torch.argmax(locPred, dim=1, keepdim=False)
             # className = self.keyOrder[i]
             # classLabel = [self.inputDict[className]["values"][t] for t in tmp]
-            outIdx.append(tmp.numpy())
+            outIdx.append(tmp)
 
             shiftInput += C
-        return np.transpose(outIdx), outActivation
+
+        return torch.stack(outIdx).t(), outActivation
 
     def soft_cross_entropy(self, pred, target, lprob=0.3, hprob=(0.7, 1.2)):
         n_cls = pred.size(1)

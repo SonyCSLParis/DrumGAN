@@ -7,7 +7,10 @@ from librosa.output import write_wav
 import torch
 from torch.nn.functional import interpolate
 from numpy import random
+from datetime import datetime
 
+def get_date():
+    return datetime.now().strftime('%y_%m_%d')
 
 def checkexists_mkdir(path):
     if not os.path.exists(path):
@@ -391,7 +394,6 @@ def GPU_is_available():
 
 def load_model_checkp(dir, iteration=None, scale=None, **kwargs):
     # Loading the modelPackage
-    from gans.progressive_gan import ProgressiveGAN
     name = os.path.basename(dir)
     config_path = os.path.join(dir, f'{name}_config.json')
     
@@ -407,8 +409,10 @@ def load_model_checkp(dir, iteration=None, scale=None, **kwargs):
     modelConfig_path, pathModel, _ = checkp_data
     model_config = read_json(modelConfig_path)
     config = read_json(config_path)
-
-    model = ProgressiveGAN(useGPU=True if GPU_is_available else False,
+    
+    name, obj = getNameAndPackage(config['arch'])
+    gan_module = loadmodule("gans", obj, prefix='')
+    model = gan_module(useGPU=True if GPU_is_available else False,
                       storeAVG=False,
                       **model_config)
 
@@ -458,7 +462,7 @@ class ResizeWrapper():
             f"Resize dimensions mismatch, Target shape {self.size} \
                 != image shape {image.shape}"
         if type(image) is not np.ndarray:
-            image = image.numpy()
+            image = image.cpu().numpy()
         out = interpolate(torch.from_numpy(image).unsqueeze(0), size=self.size).squeeze(0)
         return out
 
@@ -536,7 +540,8 @@ def load_config_file(config_path):
     with open(config_path, 'rb') as file:
         return json.load(file)
 
-def save_config_file(configFile, outputPath):
-    with open(outputPath, 'w') as file:
-
-        return json.dump(configFile, file, indent=4)
+def save_json(json_file, output_path):
+    with open(output_path, 'w') as file:
+        outfile = json.dump(json_file, file, indent=4)
+        file.close()
+    return outfile

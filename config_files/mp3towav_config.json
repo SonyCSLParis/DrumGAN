@@ -8,7 +8,9 @@
         "data_path2": "/data/nsynth/valid/json_wav/audio/wav_of_16k_mp3",
         "shuffle": true,
         "load_metadata": true,
-        "size": 50000
+        "criteria": {
+            "size": 100
+        }
     },
 
     "transform_config": {
