@@ -1,14 +1,14 @@
 {
-    "name": "MP3_to_WAV_Mallet_Sanity2",
+    "name": "MP3_to_WAV20Sanity0",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {
         "dbname": "mp3towav",
-        "data_path": "/data/nsynth/train/json_wav/audio/wav_mallets",
-        "data_path2": "/data/nsynth/train/json_wav/audio/mp3_mallets",
+        "data_path": "/data/nsynth/valid/json_wav/audio/wav",
+        "data_path2": "/data/nsynth/valid/json_wav/audio/wav_of_16k_mp3",
         "shuffle": true,
         "load_metadata": true,
-        "size": 100
+        "size": 20000
     },
         
     "transform_config": {

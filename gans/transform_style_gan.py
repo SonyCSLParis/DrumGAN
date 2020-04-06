@@ -50,7 +50,7 @@ class TStyleGAN(ProgressiveGAN):
         self.plot_iter = plot_iter
         self.lossDslidingAvg = -0.
         self.ignore_phase = True
-        self.sanity = False
+        self.sanity = True
         ProgressiveGAN.__init__(self, **kwargs)
         
 
@@ -107,10 +107,10 @@ class TStyleGAN(ProgressiveGAN):
 
     def optimizeD(self, allLosses, iter):
 
-        if self.lossDslidingAvg < -5000:
-            self.config.learningRate[1] = 0.0001
+        if self.lossDslidingAvg < -1000:
+            self.config.learningRate[1] = 0.00003
         else:
-            self.config.learningRate[1] = 0.0006
+            self.config.learningRate[1] = 0.0005
 
         print(f"\nSlidingAvg = {self.lossDslidingAvg}")
         print(f"LearningRateD = {self.config.learningRate[1]}")
@@ -204,10 +204,10 @@ class TStyleGAN(ProgressiveGAN):
 
     def optimizeG(self, allLosses, iter):
 
-        if self.lossDslidingAvg < -5000:
-            self.config.learningRate[0] = 0.0006
+        if self.lossDslidingAvg < -1000:
+            self.config.learningRate[0] = 0.0005
         else:
-            self.config.learningRate[0] = 0.0006
+            self.config.learningRate[0] = 0.0005
 
         print(f"LearningRateG = {self.config.learningRate[0]}")
 

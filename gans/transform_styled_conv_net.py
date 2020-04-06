@@ -17,6 +17,7 @@ import random
 
 def add_grad_map(x):
     # Adds a top-down gradient map (overwrites first map of x)
+    x = x.clone()
     gradv = torch.linspace(0, 1, x.shape[2])
     gradh = torch.linspace(0, 1, x.shape[3])
 
@@ -38,6 +39,12 @@ def add_grad_map(x):
     x[:, 1:2, :, :] = gradv_rep0[None, None, :, None]
     #x[:, 2:3, :, :] = gradv_rep1[None, None, :, None]
     x[:, 3:4, :, :] = gradh[None, None, None, :]
+    return x
+
+
+def add_input(x, inp):
+    x = x.clone()
+    x[:, 4:6, ...] = inp
     return x
 
 
@@ -163,6 +170,7 @@ class TStyledGNet(StyledGNet):
                 mean_style=None, 
                 style_weight=0):
 
+        x_copy = input_x.clone()
         step = len(self.toRGBLayers) - 1
         style = self.style(input_z)
         batch_size = input_z.size(0)
@@ -188,6 +196,7 @@ class TStyledGNet(StyledGNet):
 
             out = scale_interp(out, size=self.outputSizes[i])
             out = add_grad_map(out)
+            out = add_input(out, scale_interp(x_copy, size=self.outputSizes[i]))
 
             if self.uNet and i > self.nScales // 2:
                 try:
@@ -227,22 +236,20 @@ class TStyledDNet(DNet):
                                                    equalized=self.equalizedlR,
                                                    initBiasToZero=self.initBiasToZero))
 
-        self.groupScaleZero.append(EqualizedLinear(self.inputSizes[0][0] * self.inputSizes[0][1] * self.depthScale0, # here we have to multiply times the initial size (8 for generating 4096 in 9 scales)
-                                                   64,
+        self.groupScaleZero.append(EqualizedLinear(32768, # here we have to multiply times the initial size (8 for generating 4096 in 9 scales)
+                                                   32,
                                                    equalized=self.equalizedlR,
                                                    initBiasToZero=self.initBiasToZero))
-        self.groupScaleZero.append(EqualizedLinear(
-            64, 64,
-            equalized=self.equalizedlR,
-            initBiasToZero=self.initBiasToZero))
 
     def initDecisionLayer(self, sizeDecisionLayer):
-        self.decisionLayer = EqualizedLinear(64,
+        self.decisionLayer = EqualizedLinear(32,
                                              sizeDecisionLayer,
                                              equalized=self.equalizedlR,
                                              initBiasToZero=self.initBiasToZero)
 
     def forward(self, x, getFeature = False):
+        pool = torch.nn.MaxPool2d(3, stride=2, padding=1)
+
         # From RGB layer
         x = self.leakyRelu(self.fromRGBLayers[-1](x))
 
@@ -260,10 +267,12 @@ class TStyledDNet(DNet):
             outs.append(x)
 
         for i, groupLayer in enumerate(reversed(self.scaleLayers)):
-            if not i > 2 and not i < 6:
+            if i > 6:
                 for layer in groupLayer:
                     x = self.leakyRelu(layer(x))
                 #x = scale_interp(x, size=self.inputSizes[shift], mode="bilinear")
+
+                x = pool(x)
                 x = add_grad_map(x)
 
                 if self.uNet and i >= nScales // 2:
@@ -287,9 +296,6 @@ class TStyledDNet(DNet):
         x = x.view(-1, num_flat_features(x))
 
         x_lin = self.groupScaleZero[1](x)
-        x = self.leakyRelu(x_lin)
-
-        x_lin = self.groupScaleZero[2](x)
         x = self.leakyRelu(x_lin)
 
         out = self.decisionLayer(x)
