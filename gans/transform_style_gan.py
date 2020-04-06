@@ -51,7 +51,7 @@ class TStyleGAN(ProgressiveGAN):
         self.plot_iter = plot_iter
         self.lossDslidingAvg = -0.
         self.ignore_phase = True
-        self.sanity = True
+        self.sanity = False
         ProgressiveGAN.__init__(self, **kwargs)
 
     def getNetG(self):

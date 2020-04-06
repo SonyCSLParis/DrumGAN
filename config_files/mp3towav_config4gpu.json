@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV21sanityShallow",
+    "name": "MP3_to_WAV22ActualGAN0",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {
