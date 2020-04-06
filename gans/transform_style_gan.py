@@ -104,6 +104,36 @@ class TStyleGAN(ProgressiveGAN):
 
         return dnet
 
+    def get_noise_fact(self, iter):
+        mse = True
+        mse_until = 0
+        if iter > mse_until:
+            mse = False
+
+        noise_fact = 1.
+
+        print(f"mse = {mse}, noise_fact = {noise_fact}")
+        return mse, noise_fact
+
+    def test_G(self, z, x, getAvG=False, toCPU=True, **kargs):
+        r"""
+        Generate some data given the input latent vector.
+
+        Args:
+            z (torch.tensor): input latent vector
+        """
+        z = z.to(self.device)
+        x = x.to(self.device)
+        if getAvG:
+            if toCPU:
+                return self.avgG(z, x).cpu()
+            else:
+                return self.avgG(z, x)
+        elif toCPU:
+            return self.netG(z, x).detach().cpu()
+        else:
+            return self.netG(z, x).detach()
+
     def optimizeD(self, allLosses, iter):
         mse, noise_fact = self.get_noise_fact(iter)
 
@@ -120,12 +150,12 @@ class TStyleGAN(ProgressiveGAN):
         batch_size = self.x.size(0)
 
         inputLatent, _ = self.buildNoiseData(batch_size)
-        y_fake = self.netG(inputLatent, self.x_generator).detach().float()
+        x_fake = self.netG(inputLatent, self.y_generator).detach().float()
 
         if self.ignore_phase:
             self.y[:, 1, ...] = 0
             self.x[:, 1, ...] = 0
-            y_fake[:, 1, ...] = 0
+            x_fake[:, 1, ...] = 0
 
         self.optimizerD.zero_grad()
 
@@ -140,7 +170,7 @@ class TStyleGAN(ProgressiveGAN):
         #     #                 self.y.cpu().detach().numpy()[0, 1])
 
         # fake data
-        fake_xy = torch.cat([self.x, y_fake], dim=1)
+        fake_xy = torch.cat([x_fake, self.y], dim=1)
         D_fake = self.netD(fake_xy, False)
 
         # OBJECTIVE FUNCTION FOR TRUE AND FAKE DATA
@@ -189,37 +219,6 @@ class TStyleGAN(ProgressiveGAN):
 
         return allLosses
 
-    def get_noise_fact(self, iter):
-        mse = True
-        mse_until = 0
-        if iter > mse_until:
-            mse = False
-
-        noise_fact = 1.
-
-        print(f"mse = {mse}, noise_fact = {noise_fact}")
-        return mse, noise_fact
-
-    def test_G(self, z, x, getAvG=False, toCPU=True, **kargs):
-        r"""
-        Generate some data given the input latent vector.
-
-        Args:
-            z (torch.tensor): input latent vector
-        """
-        z = z.to(self.device)
-        x = x.to(self.device)
-        if getAvG:
-            if toCPU:
-                return self.avgG(z, x).cpu()
-            else:
-                return self.avgG(z, x)
-        elif toCPU:
-            return self.netG(z, x).detach().cpu()
-        else:
-            return self.netG(z, x).detach()
-
-
     def optimizeG(self, allLosses, iter):
         mse, noise_fact = self.get_noise_fact(iter)
 
@@ -242,7 +241,7 @@ class TStyleGAN(ProgressiveGAN):
         inputLatent *= (noise_fact * 1e-4)
         inputLatent = inputLatent * 0 + 1
 
-        y_fake = self.netG(inputLatent, self.x_generator)
+        x_fake = self.netG(inputLatent, self.x_generator)
 
         # if self.ignore_phase:
         #     self.x_generator[:, 1, ...] = 0
@@ -264,7 +263,7 @@ class TStyleGAN(ProgressiveGAN):
 
 
         # #2 Status evaluation
-        fake_xy = torch.cat([self.x, y_fake], dim=1)
+        fake_xy = torch.cat([x_fake, self.y], dim=1)
         D_fake = self.netD(fake_xy, False)
 
         # #3 GAN criterion
@@ -274,8 +273,8 @@ class TStyleGAN(ProgressiveGAN):
 
         allLosses["lossG_fake"] = lossGFake.item()
 
-        lossMSE = ((y_fake - self.y) ** 2).mean()
-
+        lossMSE = ((x_fake - self.x) ** 2).mean()
+        allLosses['mse_loss'] = lossMSE
         # print(f"Loss MSE = {lossMSE.item()}")
 
         if mse:
@@ -309,15 +308,15 @@ class TStyleGAN(ProgressiveGAN):
 
         return allLosses
 
-    def optimizeParameters(self, x, y, x_generator=None, iter=None):
+    def optimizeParameters(self, x, y, y_generator=None, iter=None):
         allLosses = {}
         # Retrieve the input data
         self.x = x.to(self.device).float()
         self.y = y.to(self.device).float()
         if x_generator is None:
-            self.x_generator = self.x
+            self.x_generator = self.y
         else:
-            self.x_generator = x_generator.to(self.device).float()
+            self.y_generator = y_generator.to(self.device).float()
 
         allLosses = self.optimizeD(allLosses, iter)
         allLosses = self.optimizeG(allLosses, iter)
