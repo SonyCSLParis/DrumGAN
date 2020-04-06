@@ -12,6 +12,7 @@ from .gradient_losses import WGANGPGradientPenalty
 from utils.utils import loadPartOfStateDict, finiteCheck, \
     loadStateDictCompatible, GPU_is_available
 
+
 class TStyleGAN(ProgressiveGAN):
     r"""
     Implementation of NVIDIA's progressive GAN.
@@ -52,7 +53,6 @@ class TStyleGAN(ProgressiveGAN):
         self.ignore_phase = True
         self.sanity = True
         ProgressiveGAN.__init__(self, **kwargs)
-        
 
     def getNetG(self):
         gnet = TStyledGNet(dimLatent=self.config.latentVectorDim,
@@ -108,9 +108,9 @@ class TStyleGAN(ProgressiveGAN):
     def optimizeD(self, allLosses, iter):
 
         if self.lossDslidingAvg < -1000:
-            self.config.learningRate[1] = 0.00003
+            self.config.learningRate[1] = 1e-5
         else:
-            self.config.learningRate[1] = 0.00003
+            self.config.learningRate[1] = 1e-5
 
         print(f"\nSlidingAvg = {self.lossDslidingAvg}")
         print(f"LearningRateD = {self.config.learningRate[1]}")
@@ -205,9 +205,9 @@ class TStyleGAN(ProgressiveGAN):
     def optimizeG(self, allLosses, iter):
 
         if self.lossDslidingAvg < -1000:
-            self.config.learningRate[0] = 0.0005
+            self.config.learningRate[0] = 1e-4
         else:
-            self.config.learningRate[0] = 0.0005
+            self.config.learningRate[0] = 1e-4
 
         print(f"LearningRateG = {self.config.learningRate[0]}")
 

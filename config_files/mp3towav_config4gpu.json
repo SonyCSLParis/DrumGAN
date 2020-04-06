@@ -13,7 +13,7 @@
         
     "transform_config": {
         "transform": "specgrams",
-        "fade_out": true,
+        "fade_out": false,
         "fft_size": 1024,
         "win_size": 1024,
         "n_frames": 64,
