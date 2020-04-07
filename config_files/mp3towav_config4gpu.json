@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV22ActualGAN0",
+    "name": "MP3_to_WAV22ActualGAN1",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {
@@ -8,7 +8,9 @@
         "data_path2": "/data/nsynth/train/json_wav/audio/wav_of_16k_mp3",
         "shuffle": true,
         "load_metadata": true,
-        "size": 130000
+        "criteria": {
+            "size": 130000
+        }
     },
         
     "transform_config": {

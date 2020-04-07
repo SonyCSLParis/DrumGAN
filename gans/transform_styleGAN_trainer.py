@@ -110,7 +110,7 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                     self.publish_loss()
 
                 # run evaluation/tests
-                if self.iter % self.eval_i == 0 and self.iter != 0:
+                if self.iter % self.eval_i == 0: # and self.iter != 0:
                     self.run_tests_evaluation_and_visualization(scale)
 
                 # Save checkpoint
@@ -176,6 +176,11 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                 self.loader.postprocess(true), 
                 path=output_dir, 
                 basename=f'true_audio_scale_{scale}')
+
+            saveAudioBatch(
+                self.loader.postprocess(self.true_pair),
+                path=output_dir,
+                basename=f'pair_audio_scale_{scale}')
 
         if self.vis_manager != None:
             output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')

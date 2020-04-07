@@ -50,7 +50,7 @@ class TStyleGAN(ProgressiveGAN):
         self.n_mlp = n_mlp
         self.plot_iter = plot_iter
         self.lossDslidingAvg = -0.
-        self.ignore_phase = True
+        self.ignore_phase = False
         self.sanity = False
         ProgressiveGAN.__init__(self, **kwargs)
 
@@ -138,9 +138,9 @@ class TStyleGAN(ProgressiveGAN):
     def optimizeD(self, allLosses, iter):
 
         if self.lossDslidingAvg < -1000:
-            self.config.learningRate[1] = 1e-5
+            self.config.learningRate[1] = 2e-5
         else:
-            self.config.learningRate[1] = 1e-5
+            self.config.learningRate[1] = 2e-5
 
         # print(f"\nSlidingAvg = {self.lossDslidingAvg}")
         print(f"LearningRateD = {self.config.learningRate[1]}")
@@ -267,13 +267,17 @@ class TStyleGAN(ProgressiveGAN):
         if iter % self.plot_iter == 0:
             save_spectrogram("plots", f"gen_spect_{iter}.png",
                              x_fake.cpu().detach().numpy()[0, 0])
-            save_spectrogram("plots", f"mp3_spect_{iter}.png",
-                             self.y_generator.cpu().detach().numpy()[0, 0])
             inputLatent2, _ = self.buildNoiseData(batch_size)
             with torch.no_grad():
-               x_fake2 = self.netG(inputLatent2, self.y_generator)
-               save_spectrogram("plots", f"gen_spect2_{iter}.png",
-                                x_fake2.cpu().detach().numpy()[0, 0])
+                x_fake2 = self.netG(inputLatent2, self.y_generator)
+                save_spectrogram("plots", f"gen_spect2_{iter}.png",
+                                 x_fake2.cpu().detach().numpy()[0, 0])
+                save_spectrogram("plots", f"gen_phase2_{iter}.png",
+                                 x_fake2.cpu().detach().numpy()[0, 1])
+            save_spectrogram("plots", f"gen_phase_{iter}.png",
+                             x_fake.cpu().detach().numpy()[0, 1])
+            save_spectrogram("plots", f"mp3_spect_{iter}.png",
+                             self.y_generator.cpu().detach().numpy()[0, 0])
 
         # #2 Status evaluation
         if self.sanity:
@@ -291,6 +295,8 @@ class TStyleGAN(ProgressiveGAN):
 
         lossMSE = ((x_fake - self.x) ** 2).mean()
         allLosses['mse_loss'] = lossMSE.item()
+
+        print(f"MSE={lossMSE.item()}")
 
         # print(f"Loss MSE = {lossMSE.item()}")
         # Back-propagate generator losss
