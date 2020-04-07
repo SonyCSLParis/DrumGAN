@@ -8,7 +8,7 @@ from .mp3towav_loader import MP3ToWAV
 
 AVAILABLE_DATASETS = {
 	'nsynth': NSynth,
-	'mgt-drums': MTGDrums,
+	'mtg-drums': MTGDrums,
 	'csl-drums': CSLDrums,
 	'youtube-pianos': YouTubePianos,
 	'sinewaves': Sinewaves,

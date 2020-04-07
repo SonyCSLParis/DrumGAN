@@ -22,6 +22,9 @@ FORMATS = ["wav", "mp3"]
 import ipdb
 import hashlib
 
+def timeout(signum, frame):
+    raise Exception("Time out!")
+
 
 class DataLoader(ABC, data.Dataset):
     def __init__(self,
@@ -48,8 +51,7 @@ class DataLoader(ABC, data.Dataset):
         self.shuffle = True
         self.postprocessing = postprocessing
 
-        # data/metadata attributes
-        # self.data, self.metadata, self.header = self.load_data()
+        # data/metadata/header attributes
         self.load_data()
         self.dbname = f'{dbname}_{self.__hash__()}'
         self.output_path = mkdir_in_path(os.path.expanduser(output_path), dbname)
@@ -112,9 +114,20 @@ class DataLoader(ABC, data.Dataset):
     def preprocess_data(self):
         print("Preprocessing data...")
         import multiprocessing
+        import signal
+        signal.signal(signal.SIGALRM, timeout)
+
         p = multiprocessing.Pool(multiprocessing.cpu_count())
-        self.data = list(p.map(self.preprocessing,
-                        tqdm(self.data, desc='preprocessing-loop')))
+        signal.alarm(20)
+        try:
+            self.data = list(p.map(self.preprocessing,
+                            tqdm(self.data, desc='preprocessing-loop')))
+            p.close()
+        except Exception as ex:
+            print(ex)
+            print("Running non-parallel processing")
+            self.data = list(map(self.preprocessing,
+                            tqdm(self.data, desc='preprocessing-loop')))
         print("Data preprocessing done")
 
     @abstractmethod
