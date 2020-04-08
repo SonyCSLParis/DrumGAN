@@ -90,7 +90,8 @@ def get_standard_format(path: str, dbname='nsynth'):
             if my_att not in attributes:
                 attributes[my_att] = {
                     'values': [],
-                    'count': {}
+                    'count': {},
+                    'type': str(type(item[att]))
                 }
             if type(item[att]) in [int, str]:
                 if item[att] not in attributes[my_att]['values']:
@@ -152,19 +153,19 @@ def extract(path: str, criteria: dict={}, download: bool=False):
 
     # get database attribute values and counts 
     # given the filtering criteria
-    attribute_dict = {att: {'values': [], 'count': {}} for att in out_attributes} 
+    attribute_dict = {att: {'values': [], 'count': {}, 'type': ''} for att in out_attributes} 
     for att in attribute_dict.keys():
         if att in criteria.get('filter', {}).keys(): 
             if att in ['pitch', 'instrument_id']:
 
                 attribute_dict[att]['values'] = list(range(*criteria['filter'][att]))
-                
             else:
                 criteria['filter'][att].sort()
                 attribute_dict[att]['values'] = criteria['filter'][att]
         else:
             attribute_dict[att] = nsynth_standard_desc['attributes'][att].copy()
 
+        attribute_dict[att]['type'] = nsynth_standard_desc['attributes'][att]['type']
         attribute_dict[att]['values'].sort()
         attribute_dict[att]['count'] = {str(k): 0 for k in attribute_dict[att]['values']}
 
