@@ -107,6 +107,5 @@ class AudioPairsLoader(AudioDataLoader, ABC):
                 torch.stack([self.getitem_processing(v) for v in val_batch_x])
             val_batch_y = \
                 torch.stack([self.getitem_processing(v) for v in val_batch_y])
-        
-        return val_batch_x, val_batch_y
+        return torch.FloatTensor(val_batch_x), torch.FloatTensor(val_batch_y)
 
