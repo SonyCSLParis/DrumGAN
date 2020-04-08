@@ -168,11 +168,11 @@ class TStyleGAN(ProgressiveGAN):
 
         D_real = self.netD(true_xy, False)
 
-        # if iter % self.plot_iter == 0:
-        #     save_spectrogram("plots", f"wav_spect_{iter}.png",
-        #                      self.y.cpu().detach().numpy()[0, 0])
-        #     #save_spectrogram("plots", f"wav_phase_{iter}.png",
-        #     #                 self.y.cpu().detach().numpy()[0, 1])
+        if iter % self.plot_iter == 0:
+            save_spectrogram("plots", f"wav_spect_{iter}.png",
+                             self.x.cpu().detach().numpy()[0, 0])
+            save_spectrogram("plots", f"wav_phase_{iter}.png",
+                             self.x.cpu().detach().numpy()[0, 1])
 
         # fake data
 
@@ -278,6 +278,8 @@ class TStyleGAN(ProgressiveGAN):
                              x_fake.cpu().detach().numpy()[0, 1])
             save_spectrogram("plots", f"mp3_spect_{iter}.png",
                              self.y_generator.cpu().detach().numpy()[0, 0])
+            save_spectrogram("plots", f"mp3_phase_{iter}.png",
+                             self.y_generator.cpu().detach().numpy()[0, 1])
 
         # #2 Status evaluation
         if self.sanity:
