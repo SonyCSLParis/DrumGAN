@@ -63,11 +63,20 @@ class ACGANCriterion:
         self.skipAttDfake = skipAttDfake
 
         self.keyOrder = list(attribKeysOrder.keys())
-        self.attribSize = [len(attribKeysOrder[k]["values"]) for k in attribKeysOrder]
         
-        for i, key in enumerate(attribKeysOrder):
-            self.labelsOrder[key] = {index: label for label, index in
-                                     enumerate(attribKeysOrder[key]["values"])}
+        self.attribSize = []
+        self.att_loss = []
+        for i, att in enumerate(attribKeysOrder):
+            # check which loss to apply dependeing on typ
+            if attribKeysOrder[att]['type'] == str(float):
+                # if float we use MSE: regression
+                self.attribSize.append(1)
+                self.att_loss.append('regression')
+            else:
+                self.attribSize.append(len(attribKeysOrder[att]["values"]))
+                self.labelsOrder[att] = {index: label for label, index in
+                                     enumerate(attribKeysOrder[att]["values"])}
+                self.att_loss.append('xentropy')
 
         self.labelWeights = torch.tensor(
             [1.0 for x in range(self.getInputDim())])
@@ -157,7 +166,11 @@ class ACGANCriterion:
 
         for i in range(self.nAttrib):
             if skipAtts and self.keyOrder[i] in self.skipAttDfake: continue
-            targetOut[idx, shift + targetCat[:, i]] = 1
+
+            if self.att_loss[i] in ['xentropy', 'sxentropy']:
+                targetOut[idx, shift + targetCat[:, i]] = 1
+            elif self.att_loss[i] == 'regression':
+                targetOut[idx, i] = targetCat[:, i]
             shift += self.attribSize[i]
 
         return targetOut
@@ -224,16 +237,21 @@ class ACGANCriterion:
             if self.keyOrder[i] not in self.skipAttDfake or not skipAtts:
 
                 locInput = outputD[:, shiftInput:(shiftInput+C)]
-                locTarget = target[:, shiftTarget].long()
+                locTarget = target[:, shiftTarget]
                 if self.keyOrder[i] in self.allowMultiple:
                     locTarget = target[:, shiftTarget:(shiftTarget+C)]
-                    locLoss = F.multilabel_soft_margin_loss(locInput, locTarget)
+                    locLoss = F.multilabel_soft_margin_loss(locInput, locTarget.long())
                     shiftTarget += C
                 else:
                     if self.soft_labels:
                         locLoss = self.soft_cross_entropy(locInput, locTarget)
+                    
+                    elif self.att_loss[i] == 'regression':
+                        locInput = F.sigmoid(locInput)
+                        locTarget = locTarget.reshape(locInput.size())
+                        locLoss = F.mse_loss(locInput, locTarget)
                     else:
-                        locLoss = F.cross_entropy(locInput, locTarget, 
+                        locLoss = F.cross_entropy(locInput, locTarget.long(), 
                                               weight=self.labelWeights[shiftInput:(shiftInput+C)])
                 loss += locLoss
 
