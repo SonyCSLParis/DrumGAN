@@ -50,7 +50,7 @@ class TStyleGAN(ProgressiveGAN):
         self.n_mlp = n_mlp
         self.plot_iter = plot_iter
         self.lossDslidingAvg = -0.
-        self.ignore_phase = False
+        self.ignore_phase = True
         self.sanity = False
         ProgressiveGAN.__init__(self, **kwargs)
 
@@ -138,9 +138,9 @@ class TStyleGAN(ProgressiveGAN):
     def optimizeD(self, allLosses, iter):
 
         if self.lossDslidingAvg < -1000:
-            self.config.learningRate[1] = 2e-5
+            self.config.learningRate[1] = 1e-5
         else:
-            self.config.learningRate[1] = 2e-5
+            self.config.learningRate[1] = 1e-5
 
         # print(f"\nSlidingAvg = {self.lossDslidingAvg}")
         print(f"LearningRateD = {self.config.learningRate[1]}")
@@ -259,10 +259,10 @@ class TStyleGAN(ProgressiveGAN):
 
         x_fake = self.netG(inputLatent, self.y_generator)
 
-        # if self.ignore_phase:
-        #     self.y_generator[:, 1, ...] = 0
-        #     y_fake[:, 1, ...] = 0
-        #     self.y[:, 1, ...] = 0
+        if self.ignore_phase:
+            self.y_generator[:, 1, ...] = 0
+            x_fake[:, 1, ...] = 0
+            self.x[:, 1, ...] = 0
 
         if iter % self.plot_iter == 0:
             save_spectrogram("plots", f"gen_spect_{iter}.png",

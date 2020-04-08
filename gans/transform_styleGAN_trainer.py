@@ -1,6 +1,6 @@
-import os
 
-import ipdb
+
+import matplotlib.pyplot as plt
 
 from .progressive_gan_trainer import ProgressiveGANTrainer
 
@@ -155,6 +155,16 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                D_fake_avg, fake_avg_emb.detach(), \
                self.true_ref, fake.detach(), fake_avg.detach()
 
+    def getDefaultIF(self, batch_size, win_size, hop_size):
+        defaults = [(f+1) * hop_size / win_size % 1 for f in range(win_size // 2)]
+        defaults = torch.Tensor(defaults)
+        defaults[defaults > .5] = defaults[defaults > .5] - 1
+        defaults *= -2
+        if torch.cuda.is_available():
+            defaults = defaults.cuda()
+        defaults = defaults[None, None, :, None]
+        return defaults.repeat((batch_size, 1, 1, 1))
+
     def run_tests_evaluation_and_visualization(self, scale):
         scale_output_dir = mkdir_in_path(self.output_dir, f'scale_{scale}')
         iter_output_dir  = mkdir_in_path(scale_output_dir, f'iter_{self.iter}')
@@ -166,21 +176,52 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
         true, fake, fake_avg = self.test_GAN()
 
         if self.save_gen:
-            output_dir = mkdir_in_path(iter_output_dir, 'generation')
+            if False:
+                win_size = 1024
+                hop_size = 256
+                batch_size = fake.shape[0]
+                default_map_IF = self.getDefaultIF(batch_size, win_size, hop_size)
+
+                output_dir = mkdir_in_path(iter_output_dir, 'generation')
+                fake[:, 0, :, :] = -np.inf
+                fake[0, 0, 5, :] = 5
+                fake[1, 0, 10, :] = 5
+                fake[2, 0, 17, :] = 5
+                fake[3, 0, 22, :] = 5
+                fake[4, 0, 7, :] = 5
+                fake[:, 1:2, :, :] = default_map_IF
+                #true[:, 1:2, :, :] = default_map_IF
+                self.true_pair[:, 1:2, :, :] = default_map_IF
+                print(fake[0, 0, 100, :10])
+                print(fake[0, 1, 100, :10])
+                batch_signal = self.loader.postprocess(fake)
+
+                plt.clf()
+                plt.plot(batch_signal[0][:])
+                plt.show()
+                plt.clf()
+                plt.plot(batch_signal[0][:1024])
+                plt.show()
+                plt.clf()
+                plt.plot(batch_signal[0][:256])
+                plt.show()
             saveAudioBatch(
-                self.loader.postprocess(fake), 
+                self.loader.postprocess(fake),
                 path=output_dir, 
-                basename=f'gen_audio_scale_{scale}')
+                basename=f'gen_audio_scale_{scale}',
+                overwrite=True)
 
             saveAudioBatch(
                 self.loader.postprocess(true), 
                 path=output_dir, 
-                basename=f'true_audio_scale_{scale}')
+                basename=f'true_audio_scale_{scale}',
+                overwrite=True)
 
             saveAudioBatch(
                 self.loader.postprocess(self.true_pair),
                 path=output_dir,
-                basename=f'pair_audio_scale_{scale}')
+                basename=f'pair_audio_scale_{scale}',
+                overwrite=True)
 
         if self.vis_manager != None:
             output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
