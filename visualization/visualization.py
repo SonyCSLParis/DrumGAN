@@ -50,12 +50,14 @@ class TensorVisualizer(object):
                  window_tokens=None,
                  env='default',
                  save_figs=True,
+                 no_visdom=False,
                  **kargs):
 
         self.output_path = output_path
         self.window_tokens = window_tokens
         self.env = env
         self.save_figs = save_figs
+        self.no_visdom = no_visdom
 
     def publish(self, data, name, *args):
         raise NotImplementedError
@@ -71,8 +73,9 @@ class TensorVisualizer(object):
 
     def publish_plotly_figure(self, fig, win, output_dir=None, env=''):
         self.update_tokens(win)
-        self.window_tokens[win] = \
-            vis.plotlyplot(fig, env=self.env + env, win=self.window_tokens[win])
+        if not self.no_visdom:
+            self.window_tokens[win] = \
+                vis.plotlyplot(fig, env=self.env + env, win=self.window_tokens[win])
         if output_dir:
             plot(fig, filename=os.path.join(output_dir, win + '.html'), auto_open=False)
 
@@ -134,9 +137,9 @@ class AttClassifVisualizer(TensorVisualizer):
         opts = {'title': title,
                 'legend': [key], 'xlabel': 'iteration', 'ylabel': 'loss'}
 
-
-        self.window_tokens[key] = vis.line(X=inputX, Y=inputY, opts=opts,
-                                   win=self.window_tokens[key], env=self.env + '_loss')
+        if not self.no_visdom:
+            self.window_tokens[key] = vis.line(X=inputX, Y=inputY, opts=opts,
+                                       win=self.window_tokens[key], env=self.env + '_loss')
 
         self.save(iter_n=inputX,
                 loss_val=inputY,
@@ -169,8 +172,9 @@ class LossVisualizer(TensorVisualizer):
             title = key + ' scale %d loss over time' % data["scale"]
             opts = {'title': title,
                     'legend': [key], 'xlabel': 'iteration', 'ylabel': 'loss'}
-            self.window_tokens[key] = vis.line(X=inputX, Y=inputY, opts=opts,
-                                       win=self.window_tokens[key], env=self.env + '_loss')
+            if not self.no_visdom:
+                self.window_tokens[key] = vis.line(X=inputX, Y=inputY, opts=opts,
+                                           win=self.window_tokens[key], env=self.env + '_loss')
 
             self.save(iter_n=inputX,
                     loss_val=inputY,
@@ -397,8 +401,8 @@ class AudioVisualizer(TensorVisualizer):
 
     def publish_audio(self, audio, win, env=''):
 
-        if self.sampleRate >= self.MIN_SAMPLE_RATE and self.renderAudio:
- 
+        if self.sampleRate >= self.MIN_SAMPLE_RATE and \
+           self.renderAudio and not self.no_visdom:
             win += '_audio'
             env += '_audio'
             self.update_tokens(win)
@@ -417,8 +421,9 @@ class AudioVisualizer(TensorVisualizer):
         env += '_wave'
         self.update_tokens(win)
         fig_wave = scatter_plotly(audio, title=win + f'_{title}')
-        self.window_tokens[win] = \
-            vis.plotlyplot(fig_wave, env=self.env + '_' + env, win=win)
+        if not self.no_visdom:
+            self.window_tokens[win] = \
+                vis.plotlyplot(fig_wave, env=self.env + '_' + env, win=win)
         if self.save:
             plot(fig_wave, filename=os.path.join(self.output_dir, win + f'_waveform_{title}.html'), auto_open=False)
 
@@ -427,8 +432,9 @@ class AudioVisualizer(TensorVisualizer):
         env += '_spec'
         self.update_tokens(win)
         fig_spec = plotlyHeatmap(audio, title=win + f'_{title}')
-        self.window_tokens[win] = \
-            vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
+        if not self.no_visdom:
+            self.window_tokens[win] = \
+                vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
         if self.save:
             plot(fig_spec, filename=os.path.join(self.output_dir, win + f'_spectrum_{title}.html'), auto_open=False)
 
@@ -437,11 +443,12 @@ class AudioVisualizer(TensorVisualizer):
         env += '_rainb'
         self.update_tokens(win)
         fig_rain = rainbowgram_matplot(audio, title=win + f'_{title}')
-        self.window_tokens[win] =  \
-            vis.matplot(fig_rain, 
-                        env=self.env + '_' + env, 
-                        win=win + '_rainbowgram', 
-                        opts={'resizable': True})
+        if not self.no_visdom:
+            self.window_tokens[win] =  \
+                vis.matplot(fig_rain, 
+                            env=self.env + '_' + env, 
+                            win=win + '_rainbowgram', 
+                            opts={'resizable': True})
         if self.save:
             save_matplot_fig(os.path.join(self.output_dir, win + f'_rainbowgram_{title}.png'))
 
@@ -481,8 +488,9 @@ class STFTVisualizer(AudioVisualizer):
         env += '_complex'
         self.update_tokens(win)
         fig_spec = plotlyHeatmap(audio, title=win + f'_{title}', subplot_titles=['real', 'imaginary'])
-        self.window_tokens[win] = \
-            vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
+        if not self.no_visdom:
+            self.window_tokens[win] = \
+                vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
         if self.save:
             plot(fig_spec, filename=os.path.join(self.output_dir, win + f'_complex_{title}.html'), auto_open=False)
 
@@ -549,8 +557,9 @@ class MelVisualizer(AudioVisualizer):
         env += '_mel'
         self.update_tokens(win)
         fig_spec = plotlyMagHeatmap(data[0], title=win + f'_{title}')
-        self.window_tokens[win] = \
-            vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
+        if not self.no_visdom:
+            self.window_tokens[win] = \
+                vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
         if self.save:
             plot(fig_spec, filename=os.path.join(self.output_dir, win + f'_mel_{title}.html'), auto_open=False)
 
@@ -592,8 +601,9 @@ class MFCCVisualizer(AudioVisualizer):
         env += '_mfcc'
         self.update_tokens(win)
         fig_spec = plotlyMagHeatmap(data[0], title=win + f'_{title}')
-        self.window_tokens[win] = \
-            vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
+        if not self.no_visdom:
+            self.window_tokens[win] = \
+                vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
         if self.save:
             plot(fig_spec, filename=os.path.join(self.output_dir, win + f'_mfcc_{title}.html'), auto_open=False)
 
