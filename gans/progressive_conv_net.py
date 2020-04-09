@@ -134,7 +134,6 @@ class GNet(nn.Module):
                                                 transposed=self.transposed,
                                                 equalized=self.equalizedlR,
                                                 initBiasToZero=self.initBiasToZero))  
-        
 
     def getOutputSize(self):
         r"""

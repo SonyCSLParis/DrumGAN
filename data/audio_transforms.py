@@ -231,7 +231,8 @@ def phase_diff(ph):
 def inv_instantanteous_freq(x):
     if type(x) == np.ndarray:
         x = torch.from_numpy(x)
-    ifreq_inv = torch.stack([x[0], torch.cumsum(x[1] * np.pi, dim=1)])
+
+    ifreq_inv = torch.stack([x[0], torch.cumsum(x[1], dim=1)])
     
     return ifreq_inv
 
@@ -247,7 +248,7 @@ def instantaneous_freq(specgrams):
     ifreq = np.concatenate([ph[:, :1], uph_diff], axis=1)
 
     if specgrams.shape[0] == 2:
-      return np.stack([mag, ifreq/np.pi])
+      return np.stack([mag, ifreq])
     else:
       return ifreq
 

@@ -9,7 +9,7 @@ from tqdm import tqdm
 from .spgan_config import _C
 import numpy as np
 import torch
-from utils.utils import mkdir_in_path
+from utils.utils import mkdir_in_path, saveAudioBatch
 
 
 class TStyleGANTrainer(ProgressiveGANTrainer):
@@ -91,6 +91,10 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
         with tqdm(dbLoader, desc='Iter-loop') as t:
 
             for x, y in t:
+                # run evaluation/tests
+                if self.iter % self.eval_i == 0:  # and self.iter != 0:
+                    self.run_tests_evaluation_and_visualization(scale)
+
                 # Additionnal updates inside a scale
                 x = self.inScaleUpdate(self.iter, scale, x)
                 # Optimize parameters
@@ -108,10 +112,6 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                     self.updateLossProfile(self.iter)
                     self.resetRunningLosses()
                     self.publish_loss()
-
-                # run evaluation/tests
-                if self.iter % self.eval_i == 0: # and self.iter != 0:
-                    self.run_tests_evaluation_and_visualization(scale)
 
                 # Save checkpoint
                 if self.iter % (self.saveIter - 1) == 0 and self.iter != 0:
@@ -159,16 +159,52 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
         defaults = [(f+1) * hop_size / win_size % 1 for f in range(win_size // 2)]
         defaults = torch.Tensor(defaults)
         defaults[defaults > .5] = defaults[defaults > .5] - 1
-        defaults *= -2
+        defaults *= 2 * np.pi
         if torch.cuda.is_available():
             defaults = defaults.cuda()
         defaults = defaults[None, None, :, None]
         return defaults.repeat((batch_size, 1, 1, 1))
 
+
+    def run_default_if_test(self):
+        scale_output_dir = mkdir_in_path(self.output_dir, f'scale_20')
+        iter_output_dir = mkdir_in_path(scale_output_dir, f'iter_{self.iter}')
+        output_dir = mkdir_in_path(iter_output_dir, 'generation')
+        win_size = 16384
+        hop_size = 2048
+        batch_size = self.true_pair.shape[0]
+        default_map_IF = self.getDefaultIF(batch_size, win_size,
+                                           hop_size)
+        default_map_IF[:, :, :, 0] = torch.Tensor(np.random.random(
+            (batch_size, 1, default_map_IF.shape[3])) * 2 * np.pi - np.pi)
+        # default_map_IF += torch.Tensor(
+        #     np.random.normal(0, 0.1, default_map_IF.shape)).cuda()
+        self.true_pair[:, 1:2, :, :] = default_map_IF
+        batch_signal = self.loader.postprocess(self.true_pair)
+
+        plt.clf()
+        plt.plot(batch_signal[0][:])
+        plt.show()
+        plt.clf()
+        plt.plot(batch_signal[0][:2048])
+        plt.show()
+
+        saveAudioBatch(
+            self.loader.postprocess(self.true_ref),
+            path=output_dir,
+            basename=f'true_audio',
+            overwrite=True)
+
+        saveAudioBatch(
+            self.loader.postprocess(self.true_pair),
+            path=output_dir,
+            basename=f'processed_audio',
+            overwrite=True)
+
+
     def run_tests_evaluation_and_visualization(self, scale):
         scale_output_dir = mkdir_in_path(self.output_dir, f'scale_{scale}')
         iter_output_dir  = mkdir_in_path(scale_output_dir, f'iter_{self.iter}')
-        from utils.utils import saveAudioBatch
 
         _, true_emb, \
         _, fake_emb, \
@@ -176,34 +212,34 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
         true, fake, fake_avg = self.test_GAN()
 
         if self.save_gen:
+            output_dir = mkdir_in_path(iter_output_dir, 'generation')
             if False:
                 win_size = 1024
                 hop_size = 256
                 batch_size = fake.shape[0]
                 default_map_IF = self.getDefaultIF(batch_size, win_size, hop_size)
-
-                output_dir = mkdir_in_path(iter_output_dir, 'generation')
+                default_map_IF[:, :, :, 0] = torch.Tensor(np.random.random((batch_size, 1, default_map_IF.shape[3])) * 2*np.pi - np.pi)
+                default_map_IF += torch.Tensor(np.random.normal(0, 0.1, default_map_IF.shape)).cuda()
                 fake[:, 0, :, :] = -np.inf
-                fake[0, 0, 5, :] = 5
-                fake[1, 0, 10, :] = 5
-                fake[2, 0, 17, :] = 5
-                fake[3, 0, 22, :] = 5
-                fake[4, 0, 7, :] = 5
+                fake[0, 0, 0, :] = 5
+                fake[0, 0, 10, :] = 5
+                fake[1, 0, 17, :] = 5
+                fake[1, 0, 251, :] = 5
+                fake[1, 0, 7, :] = 5
                 fake[:, 1:2, :, :] = default_map_IF
                 #true[:, 1:2, :, :] = default_map_IF
+                # self.true_pair[:, 0, 3:, :] = -np.inf
+                # self.true_pair[:, 0, :2, :] = -np.inf
                 self.true_pair[:, 1:2, :, :] = default_map_IF
                 print(fake[0, 0, 100, :10])
                 print(fake[0, 1, 100, :10])
-                batch_signal = self.loader.postprocess(fake)
+                batch_signal = self.loader.postprocess(self.true_pair)
 
                 plt.clf()
                 plt.plot(batch_signal[0][:])
                 plt.show()
                 plt.clf()
-                plt.plot(batch_signal[0][:1024])
-                plt.show()
-                plt.clf()
-                plt.plot(batch_signal[0][:256])
+                plt.plot(batch_signal[0][:2048])
                 plt.show()
             saveAudioBatch(
                 self.loader.postprocess(fake),

@@ -50,7 +50,7 @@ class TStyleGAN(ProgressiveGAN):
         self.n_mlp = n_mlp
         self.plot_iter = plot_iter
         self.lossDslidingAvg = -0.
-        self.ignore_phase = True
+        self.ignore_phase = False
         self.sanity = False
         ProgressiveGAN.__init__(self, **kwargs)
 
@@ -136,11 +136,11 @@ class TStyleGAN(ProgressiveGAN):
             return self.netG(z, x).detach()
 
     def optimizeD(self, allLosses, iter):
-
-        if self.lossDslidingAvg < -1000:
-            self.config.learningRate[1] = 1e-5
-        else:
-            self.config.learningRate[1] = 1e-5
+        return allLosses
+        # if self.lossDslidingAvg < -1000:
+        #     self.config.learningRate[1] = 2e-5
+        # else:
+        #     self.config.learningRate[1] = 2e-5
 
         # print(f"\nSlidingAvg = {self.lossDslidingAvg}")
         print(f"LearningRateD = {self.config.learningRate[1]}")
@@ -168,25 +168,12 @@ class TStyleGAN(ProgressiveGAN):
 
         D_real = self.netD(true_xy, False)
 
-        if iter % self.plot_iter == 0:
-            save_spectrogram("plots", f"wav_spect_{iter}.png",
-                             self.x.cpu().detach().numpy()[0, 0])
-            save_spectrogram("plots", f"wav_phase_{iter}.png",
-                             self.x.cpu().detach().numpy()[0, 1])
-
         # fake data
 
         if self.sanity:
             fake_xy = torch.cat([self.x, x_fake], dim=1)
         else:
             fake_xy = torch.cat([self.y_generator, x_fake], dim=1)
-
-        # print(f"fake min = {y_fake.min()}")
-        # print(f"wav min = {self.y.min()}")
-        # print(f"mp3 min = {self.x.min()}")
-        # print(f"fake max = {y_fake.max()}")
-        # print(f"wav max = {self.y.max()}")
-        # print(f"mp3 max = {self.x.max()}")
 
         D_fake = self.netD(fake_xy, False)
 
@@ -237,11 +224,6 @@ class TStyleGAN(ProgressiveGAN):
 
     def optimizeG(self, allLosses, iter):
 
-        if self.lossDslidingAvg < -1000:
-            self.config.learningRate[0] = 1e-4
-        else:
-            self.config.learningRate[0] = 1e-4
-
         print(f"LearningRateG = {self.config.learningRate[0]}")
 
         self.optimizerG = self.getOptimizerG()
@@ -265,6 +247,10 @@ class TStyleGAN(ProgressiveGAN):
             self.x[:, 1, ...] = 0
 
         if iter % self.plot_iter == 0:
+            save_spectrogram("plots", f"wav_spect_{iter}.png",
+                             self.x.cpu().detach().numpy()[0, 0])
+            save_spectrogram("plots", f"wav_phase_{iter}.png",
+                             self.x.cpu().detach().numpy()[0, 1])
             save_spectrogram("plots", f"gen_spect_{iter}.png",
                              x_fake.cpu().detach().numpy()[0, 0])
             inputLatent2, _ = self.buildNoiseData(batch_size)
@@ -287,15 +273,20 @@ class TStyleGAN(ProgressiveGAN):
         else:
             fake_xy = torch.cat([self.y_generator, x_fake], dim=1)
 
-        D_fake = self.netD(fake_xy, False)
+        #D_fake = self.netD(fake_xy, False)
 
         # #3 GAN criterion
-        lossGFake = self.lossCriterion.getCriterion(D_fake, False)
-        lossGFake = -lossGFake
+        #lossGFake = self.lossCriterion.getCriterion(D_fake, False)
+        #lossGFake = -lossGFake
+
+        lossMSE = ((x_fake - self.x) ** 2).mean()
+
+        lossGFake = lossMSE * 0
 
         allLosses["lossG_fake"] = lossGFake.item()
 
-        lossMSE = ((x_fake - self.x) ** 2).mean()
+        lossGFake = lossMSE
+
         allLosses['mse_loss'] = lossMSE.item()
 
         print(f"MSE={lossMSE.item()}")

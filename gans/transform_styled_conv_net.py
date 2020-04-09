@@ -244,12 +244,24 @@ class TStyledDNet(DNet):
                                                    initBiasToZero=self.initBiasToZero))
 
         self.groupScaleZero.append(EqualizedLinear(32768, # here we have to multiply times the initial size (8 for generating 4096 in 9 scales)
-                                                   32,
+                                                   512,
+                                                   equalized=self.equalizedlR,
+                                                   initBiasToZero=self.initBiasToZero))
+
+        self.groupScaleZero.append(EqualizedLinear(512,
+                                                   # here we have to multiply times the initial size (8 for generating 4096 in 9 scales)
+                                                   256,
+                                                   equalized=self.equalizedlR,
+                                                   initBiasToZero=self.initBiasToZero))
+
+        self.groupScaleZero.append(EqualizedLinear(256,
+                                                   # here we have to multiply times the initial size (8 for generating 4096 in 9 scales)
+                                                   64,
                                                    equalized=self.equalizedlR,
                                                    initBiasToZero=self.initBiasToZero))
 
     def initDecisionLayer(self, sizeDecisionLayer):
-        self.decisionLayer = EqualizedLinear(32,
+        self.decisionLayer = EqualizedLinear(64,
                                              sizeDecisionLayer,
                                              equalized=self.equalizedlR,
                                              initBiasToZero=self.initBiasToZero)
@@ -258,6 +270,7 @@ class TStyledDNet(DNet):
         pool = torch.nn.MaxPool2d(3, stride=2, padding=1)
 
         # From RGB layer
+        selu = nn.SELU()
         x = self.leakyRelu(self.fromRGBLayers[-1](x))
 
         #x = shift_maps(x)
@@ -309,8 +322,9 @@ class TStyledDNet(DNet):
         x = self.leakyRelu(self.groupScaleZero[0](x))
         x = x.view(-1, num_flat_features(x))
 
-        x_lin = self.groupScaleZero[1](x)
-        x = self.leakyRelu(x_lin)
+        for i in range(1, len(self.groupScaleZero)):
+            x_lin = self.groupScaleZero[i](x)
+            x = selu(x_lin)
 
         out = self.decisionLayer(x)
 
