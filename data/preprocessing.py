@@ -114,14 +114,9 @@ class AudioProcessor(DataProcessor):
         self._add_to_torch()
         self.output_shape = (1, 1, self.audio_length)
 
-        def in_reshape(x):
-            return x.reshape(self.audio_length)
+        self.post_pipeline.insert(0, partial(reshape, self.audio_length))
+        self.pre_pipeline.append(partial(reshape, self.output_shape))
 
-        def out_reshape(x):
-            return x.reshape(self.output_shape)
-
-        self.post_pipeline.insert(0, in_reshape)
-        self.pre_pipeline.append(out_reshape)
 
     def build_stft_pipeline(self):
         self._init_stft_params()
@@ -163,8 +158,7 @@ class AudioProcessor(DataProcessor):
                                          self))
         self.post_pipeline.insert(0, partial(imel, self.sample_rate,
                                              self.hop_size, self))
-        self.pre_pipeline.append(reshape)
-
+        self.pre_pipeline.append(partial(reshape, self.output_shape))
         self.post_pipeline.insert(0, partial(reshape, self.output_shape))
         self._add_to_torch()
 
@@ -172,7 +166,6 @@ class AudioProcessor(DataProcessor):
         self.post_pipeline.insert(0, to_numpy)
 
     def build_mfcc_pipeline(self):
-
         self._init_stft_params()
         self._add_audio_loader()
         self._add_signal_zeropadding()
@@ -186,10 +179,10 @@ class AudioProcessor(DataProcessor):
         self._add_to_torch()
 
 
-        self.output_shape = (1, getattr(self, 'n_mfcc', 128), self.n_frames)
+        self.output_shape = (1, getattr(self, 'n_mfcc', 20), self.n_frames)
 
-        self.pre_pipeline.append(reshape)
-        self.post_pipeline.insert(0, reshape)
+        self.pre_pipeline.append(partial(reshape, self.output_shape))
+        self.post_pipeline.insert(0, partial(reshape, self.output_shape))
         self.post_pipeline.insert(0, to_numpy)
 
     def build_cqt_pipeline(self):
@@ -209,8 +202,8 @@ class AudioProcessor(DataProcessor):
         self._add_ifreq()
         self._add_to_torch()
         self.output_shape = (2, getattr(self, 'n_cqt', 84), self.n_frames)
-        self.pre_pipeline.append(reshape)
-        self.post_pipeline.insert(0, reshape)
+        self.pre_pipeline.append(partial(reshape, self.output_shape))
+        self.post_pipeline.insert(0, partial(reshape, self.output_shape))
 
     def build_cqt_nsgt_pipeline(self):
         print("")
