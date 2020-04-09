@@ -495,6 +495,9 @@ class GANTrainer():
 
         if self.vis_manager != None:
             output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
+            if scale >= self.n_scales -2:
+                self.vis_manager.renderAudio = True
+
             self.vis_manager.set_postprocessing(
                 self.loader.get_postprocessor())
             self.vis_manager.publish(
