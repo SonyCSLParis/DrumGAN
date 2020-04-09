@@ -38,7 +38,7 @@ def getVisualizer(data_type):
         'mel':  MelVisualizer,
         'mfcc':  MFCCVisualizer,
         'cqt': CQTVisualizer,
-        'cqt_nsgt':  CQTVisualizer
+        'cqt_nsgt':  CQNSGTVisualizer
     }[data_type]
 
 
@@ -556,7 +556,7 @@ class MelVisualizer(AudioVisualizer):
         win += '_mel'
         env += '_mel'
         self.update_tokens(win)
-        fig_spec = plotlyMagHeatmap(data[0], title=win + f'_{title}')
+        fig_spec = heatmap_plotly(data[0], title=win + f'_{title}')
         if not self.no_visdom:
             self.window_tokens[win] = \
                 vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
@@ -600,7 +600,8 @@ class MFCCVisualizer(AudioVisualizer):
         win += '_mfcc'
         env += '_mfcc'
         self.update_tokens(win)
-        fig_spec = plotlyMagHeatmap(data[0], title=win + f'_{title}')
+
+        fig_spec = heatmap_plotly(data[0], title=win + f'_{title}')
         if not self.no_visdom:
             self.window_tokens[win] = \
                 vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
@@ -621,7 +622,6 @@ class MFCCVisualizer(AudioVisualizer):
             win_name = f'{name}_{str(i)}'
             try:
                 post_audio = self.get_waveform(audio)
-               
                 # Audio player
                 self.publish_audio(post_audio, win=win_name, env=str(i))
                 # Audio waveform plot
@@ -668,5 +668,35 @@ class CQTVisualizer(AudioVisualizer):
             # Rainbowgram plot
             self.publish_rainbowgram(post_audio, title=label_title, win=win_name, env=str(i))
             # Mel spectrogram
-            self.publish_cqt(audio, title=label_title, win=win_name, env=str(i))
+            self.publish_spectrogram(audio, title=label_title, win=win_name, env=str(i) + '_cqt')
 
+class CQNSGTVisualizer(AudioVisualizer):
+    def __init__(self, **kargs):
+        AudioVisualizer.__init__(self, **kargs)
+
+    def publish_cqt(self, data, title, win, env):
+        pass
+
+    def publish(self, data, name="", labels=[], output_dir=None):
+        self.output_dir = output_dir
+        n_vis = min(len(data), 3)
+
+        for i, audio in enumerate(data[:self.max_n_plots]):
+            if len(labels) != len(data):
+                label_title = 'gen'
+            else:
+                label_title = '_'.join(labels[i])
+
+            post_audio = self.get_waveform(audio)
+            win_name = f'{name}_{str(i)}'
+
+            # Audio player
+            self.publish_audio(post_audio, win=win_name, env=str(i))
+            # Audio waveform plot
+            self.publish_waveform(post_audio, title=label_title, win=win_name, env=str(i))
+            # Spectrogram plot
+            self.publish_spectrogram(post_audio, title=label_title, win=win_name, env=str(i))
+            # Rainbowgram plot
+            self.publish_rainbowgram(post_audio, title=label_title, win=win_name, env=str(i))
+            # Mel spectrogram
+            # self.publish_spectrogram(audio, title=label_title, win=win_name, env=str(i) + '_cqt')
