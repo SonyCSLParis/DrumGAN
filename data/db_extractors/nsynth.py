@@ -67,7 +67,7 @@ def get_standard_format(path: str, dbname='nsynth'):
     nsynth_description['total_size'] = len(nsynth_files)
     attributes = {}
     n_folders = 0
-
+    nsynth_files = list(filter(lambda x: get_filename(x) in metadata, nsynth_files))
     pbar = tqdm(enumerate(nsynth_files), desc='Reading files')
     for i, file in pbar:
         if i % MAX_N_FILES_IN_FOLDER == 0:
@@ -77,8 +77,7 @@ def get_standard_format(path: str, dbname='nsynth'):
         filename = get_filename(file)
         output_file = os.path.join(output_dir, filename + '.json')
         nsynth_description['data'].append(output_file)
-        if os.path.exists(output_file):
-            print(f'File {output_file} exists, skipping...')
+
         item = metadata[filename]
         out_item = {
             'path': file,
@@ -171,13 +170,21 @@ def extract(path: str, criteria: dict={}, download: bool=False):
 
     size = criteria.get('size', nsynth_standard_desc['total_size'])
     balance = False
+    
     if 'balance' in criteria:
         balance = True
         b_atts = criteria['balance']
 
         for b_att in b_atts:
             count = []
-            for v in attribute_dict[b_att]['values']:
+            if b_att in attribute_dict:
+                b_att_vals = attribute_dict[b_att]['values']
+            else:
+                if b_att in criteria.get('filter', {}):
+                    b_att_vals = criteria['filter'][b_att]
+                else:
+                    b_att_vals = nsynth_standard_desc['attributes'][b_att]['values']
+            for v in b_att_vals:
                 
                 count.append(nsynth_standard_desc['attributes'][b_att]['count'][str(v)])
             n_vals = len(count)
@@ -220,7 +227,14 @@ def extract(path: str, criteria: dict={}, download: bool=False):
         if balance:
             for b_att in b_atts:
                 val = item_atts[b_att]
-                bsize = size / len(attribute_dict[b_att]['values'])
+                if b_att in attribute_dict:
+                    bsize = size / len(attribute_dict[b_att]['values'])
+                elif b_att in criteria.get('filter', {}):
+                    bsize = size / len(criteria['filter'][b_att])
+                
+                else:
+                    bsize = size / len(nsynth_standard_desc['attributes'][b_att]['values'])
+
                 if attribute_dict[b_att]['count'][str(val)] >= bsize:
                     skip = True
             if skip:
