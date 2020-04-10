@@ -3,6 +3,8 @@ import argparse
 import sys
 from datetime import datetime
 
+from torch.backends import cudnn
+
 from data.loaders import get_data_loader
 from data.preprocessing import AudioProcessor
 from gans import ProgressiveGANTrainer
@@ -60,7 +62,8 @@ if __name__ == "__main__":
     parser.add_argument('--visdom', action='store_true',
                         help=' If a checkpoint is detected, do not try to load it')
 
-    torch.autograd.set_detect_anomaly(True)
+    #torch.autograd.set_detect_anomaly(True)
+    cudnn.benchmark = True
     # Parse command line args
     args, unknown = parser.parse_known_args()
     # Initialize random seed
