@@ -122,7 +122,7 @@
         "lambdaGP": 50.0,
         "leakyness": 0.02,
         "miniBatchStdDev": true,
-        "baseLearningRate": [0.0001, 0.00002],
+        "baseLearningRate": [0.00001, 0.00002],
         "dimOutput": 2,
         "weightConditionG": 0.0,
         "weightConditionD": 0.0,

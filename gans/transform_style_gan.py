@@ -75,7 +75,7 @@ class TStyleGAN(ProgressiveGAN):
         for i, depth in enumerate(self.config.depthOtherScales):
             groups = 1
             if i > len(self.config.depthOtherScales) - 4:
-                groups = 2
+                groups = 1
             gnet.addScale(depth, groups)
 
         # If new scales are added, give the generator a blending layer
@@ -139,7 +139,6 @@ class TStyleGAN(ProgressiveGAN):
             return self.netG(z, x).detach()
 
     def optimizeD(self, allLosses, iter):
-        return allLosses
         # if self.lossDslidingAvg < -1000:
         #     self.config.learningRate[1] = 2e-5
         # else:
@@ -276,19 +275,19 @@ class TStyleGAN(ProgressiveGAN):
         else:
             fake_xy = torch.cat([self.y_generator, x_fake], dim=1)
 
-        #D_fake = self.netD(fake_xy, False)
+        D_fake = self.netD(fake_xy, False)
 
         # #3 GAN criterion
-        #lossGFake = self.lossCriterion.getCriterion(D_fake, False)
-        #lossGFake = -lossGFake
+        lossGFake = self.lossCriterion.getCriterion(D_fake, False)
+        lossGFake = -lossGFake
 
         lossMSE = ((x_fake - self.x) ** 2).mean()
 
-        lossGFake = lossMSE * 0
+        #lossGFake = lossMSE * 0
 
         allLosses["lossG_fake"] = lossGFake.item()
 
-        lossGFake = lossMSE
+        lossGFake = lossGFake #+ lossMSE
 
         allLosses['mse_loss'] = lossMSE.item()
 
