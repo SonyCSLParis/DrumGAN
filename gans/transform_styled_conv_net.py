@@ -133,7 +133,7 @@ class TStyledGNet(StyledGNet):
                                                 equalized=self.equalizedlR,
                                                 initBiasToZero=self.initBiasToZero))
 
-    def addScale(self, depthNewScale):
+    def addScale(self, depthNewScale, groups=1):
         r"""
         Add a new scale to the model. Increasing the output resolution by
         a factor 2
@@ -153,7 +153,8 @@ class TStyledGNet(StyledGNet):
                                                 style_dim=self.dimLatent,
                                                 init_size=self.sizeScale0,
                                                 transposed=self.transposed,
-                                                noise_injection=self.noise_injection))
+                                                noise_injection=self.noise_injection,
+                                                groups=groups))
 
 
         self.toRGBLayers.append(EqualizedConv2d(depthNewScale,

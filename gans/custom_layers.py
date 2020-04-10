@@ -153,6 +153,7 @@ class EqualizedConv2d(ConstrainedLayer):
                  padding=0,
                  bias=True,
                  transposed=False,
+                 groups=1,
                  **kwargs):
         r"""
         A nn.Conv2d module with specific constraints
@@ -167,13 +168,13 @@ class EqualizedConv2d(ConstrainedLayer):
             ConstrainedLayer.__init__(self,
                                       nn.ConvTranspose2d(nChannelsPrevious, nChannels,
                                                 kernelSize, padding=padding,
-                                                bias=bias),
+                                                bias=bias, groups=groups),
                                       **kwargs)
         else:
             ConstrainedLayer.__init__(self,
                                       nn.Conv2d(nChannelsPrevious, nChannels,
                                                 kernelSize, padding=padding,
-                                                bias=bias),
+                                                bias=bias, groups=groups),
                                       **kwargs)
 
 
@@ -539,14 +540,16 @@ class StyledConv2DBlockShallow(nn.Module):
 
     """
     def __init__(self, in_channel, out_channel, kernel_size=3, transposed=False,
-                 padding=1, style_dim=512, init_size=0, noise_injection=True):
+                 padding=1, style_dim=512, init_size=0, noise_injection=True,
+                 groups=1):
         super().__init__()
         self.noise_injection = noise_injection
         self.conv1 = EqualizedConv2d(in_channel,
                                      out_channel,
                                      kernel_size,
                                      padding=padding,
-                                     transposed=transposed)
+                                     transposed=transposed,
+                                     groups=groups)
 
         if noise_injection:
             self.noise1 = EqualizedNoiseInjection2D(out_channel)

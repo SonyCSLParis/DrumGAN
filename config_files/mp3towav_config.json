@@ -9,7 +9,7 @@
         "shuffle": true,
         "load_metadata": true,
         "criteria": {
-            "size": 100000
+            "size": 20000
         }
     },
 

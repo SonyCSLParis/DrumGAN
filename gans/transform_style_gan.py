@@ -72,8 +72,11 @@ class TStyleGAN(ProgressiveGAN):
                           formatLayerType=self.config.formatLayerType)
 
         # Add scales if necessary
-        for depth in self.config.depthOtherScales:
-            gnet.addScale(depth)
+        for i, depth in enumerate(self.config.depthOtherScales):
+            groups = 1
+            if i > len(self.config.depthOtherScales) - 4:
+                groups = 2
+            gnet.addScale(depth, groups)
 
         # If new scales are added, give the generator a blending layer
         if self.config.depthOtherScales:
