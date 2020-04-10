@@ -162,7 +162,7 @@ class TStyleGAN(ProgressiveGAN):
 
         # print(f"\nSlidingAvg = {self.lossDslidingAvg}")
 
-        _, self.config.learningRate[1], _, _, _ = self.get_lrs_from_file()
+        _, self.config.learningRate[1], _, _, _, noise_fact = self.get_lrs_from_file()
 
         print(f"\nLearningRateD = {self.config.learningRate[1]}")
 
@@ -171,6 +171,9 @@ class TStyleGAN(ProgressiveGAN):
         batch_size = self.x.size(0)
 
         inputLatent, _ = self.buildNoiseData(batch_size)
+
+        inputLatent *= noise_fact
+
         x_fake = self.netG(inputLatent, self.y_generator).detach().float()[:, :-1]
 
         if self.ignore_phase:
@@ -245,7 +248,7 @@ class TStyleGAN(ProgressiveGAN):
 
     def optimizeG(self, allLosses, iter):
 
-        self.config.learningRate[0], _, mse_fact, adv_fact, mask_fact = self.get_lrs_from_file()
+        self.config.learningRate[0], _, mse_fact, adv_fact, mask_fact, noise_fact = self.get_lrs_from_file()
 
         print(f"LearningRateG = {self.config.learningRate[0]}")
 
@@ -258,7 +261,7 @@ class TStyleGAN(ProgressiveGAN):
         # #1 Image generation
         inputLatent, _ = self.buildNoiseData(batch_size)
 
-        #inputLatent *= (noise_fact * 1e-4)
+        inputLatent *= noise_fact
         if self.sanity:
             inputLatent = inputLatent * 0 + 1
 

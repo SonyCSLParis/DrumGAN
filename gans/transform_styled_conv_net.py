@@ -203,7 +203,7 @@ class TStyledGNet(StyledGNet):
 
             out = scale_interp(out, size=self.outputSizes[i])
             out = add_grad_map(out)
-            out = add_input(out, scale_interp(x_copy, size=self.outputSizes[i]))
+            #out = add_input(out, scale_interp(x_copy, size=self.outputSizes[i]))
 
             if self.uNet and i > self.nScales // 2:
                 try:
