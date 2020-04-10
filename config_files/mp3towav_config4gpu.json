@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV22ActualGAN3BiggerDecisionMSE2",
+    "name": "MP3_to_WAV22ActualGAN3BiggerDecisionMSE3",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {
@@ -9,7 +9,7 @@
         "shuffle": true,
         "load_metadata": true,
         "criteria": {
-            "size": 130000
+            "size": 1000
         }
     },
         
@@ -113,7 +113,7 @@
             20,
             20,
             20,
-            40
+            60
         ],
         "n_mlp": 8,
         "dimLatentVector": 32,

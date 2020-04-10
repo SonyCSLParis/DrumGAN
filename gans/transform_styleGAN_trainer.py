@@ -101,7 +101,7 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                 allLosses = self.model.optimizeParameters(x, y, iter=self.iter)
                 # Update and print losses
                 self.updateRunningLosses(allLosses)
-                state_msg = f'Iter: {self.iter}; scale: {scale} '
+                state_msg = f'Iter: {self.iter} '
                 for key, val in allLosses.items():
                     state_msg += f'{key}: {val:.2f}; '
                 t.set_description(state_msg)

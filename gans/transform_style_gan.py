@@ -138,6 +138,20 @@ class TStyleGAN(ProgressiveGAN):
         else:
             return self.netG(z, x).detach()
 
+    def get_lrs_from_file(self):
+        with open("lrs.txt", "r") as f:
+            lines = f.readlines()
+
+        floats = [float(l) for l in lines]
+        res = tuple(floats)
+
+        if len(lines) == 0:
+            res = self.lrs
+        else:
+            self.lrs = res
+
+        return res
+
     def optimizeD(self, allLosses, iter):
         # if self.lossDslidingAvg < -1000:
         #     self.config.learningRate[1] = 2e-5
@@ -145,7 +159,10 @@ class TStyleGAN(ProgressiveGAN):
         #     self.config.learningRate[1] = 2e-5
 
         # print(f"\nSlidingAvg = {self.lossDslidingAvg}")
-        print(f"LearningRateD = {self.config.learningRate[1]}")
+
+        _, self.config.learningRate[1], _, _ = self.get_lrs_from_file()
+
+        print(f"\nLearningRateD = {self.config.learningRate[1]}")
 
         self.optimizerD = self.getOptimizerD()
 
@@ -226,6 +243,8 @@ class TStyleGAN(ProgressiveGAN):
 
     def optimizeG(self, allLosses, iter):
 
+        self.config.learningRate[0], _, mse_fact, adv_fact = self.get_lrs_from_file()
+
         print(f"LearningRateG = {self.config.learningRate[0]}")
 
         self.optimizerG = self.getOptimizerG()
@@ -287,14 +306,11 @@ class TStyleGAN(ProgressiveGAN):
 
         allLosses["lossG_fake"] = lossGFake.item()
 
-        lossGFake = lossGFake #+ lossMSE
+        lossGFake = lossGFake * adv_fact + lossMSE * mse_fact
 
         allLosses['mse_loss'] = lossMSE.item()
 
         print(f"MSE={lossMSE.item()}")
-
-        # print(f"Loss MSE = {lossMSE.item()}")
-        # Back-propagate generator losss
 
         lossGFake.backward()
         finiteCheck(self.getOriginalG().parameters())
