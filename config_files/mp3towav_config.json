@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV23BiggerDecision",
+    "name": "MP3_to_WAV24LearnMSE",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {
@@ -9,7 +9,7 @@
         "shuffle": true,
         "load_metadata": true,
         "criteria": {
-            "size": 100
+            "size": 20000
         }
     },
 

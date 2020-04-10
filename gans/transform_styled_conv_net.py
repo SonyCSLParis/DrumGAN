@@ -158,7 +158,7 @@ class TStyledGNet(StyledGNet):
 
 
         self.toRGBLayers.append(EqualizedConv2d(depthNewScale,
-                                                self.dimOutput,
+                                                self.dimOutput + 1,
                                                 1, 
                                                 transposed=self.transposed,
                                                 equalized=self.equalizedlR,

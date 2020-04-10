@@ -206,70 +206,71 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
         scale_output_dir = mkdir_in_path(self.output_dir, f'scale_{scale}')
         iter_output_dir  = mkdir_in_path(scale_output_dir, f'iter_{self.iter}')
 
-        _, true_emb, \
-        _, fake_emb, \
-        _, fake_avg_emb, \
-        true, fake, fake_avg = self.test_GAN()
+        with torch.no_grad():
+            _, true_emb, \
+            _, fake_emb, \
+            _, fake_avg_emb, \
+            true, fake, fake_avg = self.test_GAN()
 
-        if self.save_gen:
-            output_dir = mkdir_in_path(iter_output_dir, 'generation')
-            if False:
-                win_size = 1024
-                hop_size = 256
-                batch_size = fake.shape[0]
-                default_map_IF = self.getDefaultIF(batch_size, win_size, hop_size)
-                default_map_IF[:, :, :, 0] = torch.Tensor(np.random.random((batch_size, 1, default_map_IF.shape[3])) * 2*np.pi - np.pi)
-                default_map_IF += torch.Tensor(np.random.normal(0, 0.1, default_map_IF.shape)).cuda()
-                fake[:, 0, :, :] = -np.inf
-                fake[0, 0, 0, :] = 5
-                fake[0, 0, 10, :] = 5
-                fake[1, 0, 17, :] = 5
-                fake[1, 0, 251, :] = 5
-                fake[1, 0, 7, :] = 5
-                fake[:, 1:2, :, :] = default_map_IF
-                #true[:, 1:2, :, :] = default_map_IF
-                # self.true_pair[:, 0, 3:, :] = -np.inf
-                # self.true_pair[:, 0, :2, :] = -np.inf
-                self.true_pair[:, 1:2, :, :] = default_map_IF
-                print(fake[0, 0, 100, :10])
-                print(fake[0, 1, 100, :10])
-                batch_signal = self.loader.postprocess(self.true_pair)
+            if self.save_gen:
+                output_dir = mkdir_in_path(iter_output_dir, 'generation')
+                if False:
+                    win_size = 1024
+                    hop_size = 256
+                    batch_size = fake.shape[0]
+                    default_map_IF = self.getDefaultIF(batch_size, win_size, hop_size)
+                    default_map_IF[:, :, :, 0] = torch.Tensor(np.random.random((batch_size, 1, default_map_IF.shape[3])) * 2*np.pi - np.pi)
+                    default_map_IF += torch.Tensor(np.random.normal(0, 0.1, default_map_IF.shape)).cuda()
+                    fake[:, 0, :, :] = -np.inf
+                    fake[0, 0, 0, :] = 5
+                    fake[0, 0, 10, :] = 5
+                    fake[1, 0, 17, :] = 5
+                    fake[1, 0, 251, :] = 5
+                    fake[1, 0, 7, :] = 5
+                    fake[:, 1:2, :, :] = default_map_IF
+                    #true[:, 1:2, :, :] = default_map_IF
+                    # self.true_pair[:, 0, 3:, :] = -np.inf
+                    # self.true_pair[:, 0, :2, :] = -np.inf
+                    self.true_pair[:, 1:2, :, :] = default_map_IF
+                    print(fake[0, 0, 100, :10])
+                    print(fake[0, 1, 100, :10])
+                    batch_signal = self.loader.postprocess(self.true_pair)
 
-                plt.clf()
-                plt.plot(batch_signal[0][:])
-                plt.show()
-                plt.clf()
-                plt.plot(batch_signal[0][:2048])
-                plt.show()
-            saveAudioBatch(
-                self.loader.postprocess(fake),
-                path=output_dir, 
-                basename=f'gen_audio_scale_{scale}',
-                overwrite=True)
+                    plt.clf()
+                    plt.plot(batch_signal[0][:])
+                    plt.show()
+                    plt.clf()
+                    plt.plot(batch_signal[0][:2048])
+                    plt.show()
+                saveAudioBatch(
+                    self.loader.postprocess(fake),
+                    path=output_dir,
+                    basename=f'gen_audio_scale_{scale}',
+                    overwrite=True)
 
-            saveAudioBatch(
-                self.loader.postprocess(true), 
-                path=output_dir, 
-                basename=f'true_audio_scale_{scale}',
-                overwrite=True)
+                saveAudioBatch(
+                    self.loader.postprocess(true),
+                    path=output_dir,
+                    basename=f'true_audio_scale_{scale}',
+                    overwrite=True)
 
-            saveAudioBatch(
-                self.loader.postprocess(self.true_pair),
-                path=output_dir,
-                basename=f'pair_audio_scale_{scale}',
-                overwrite=True)
+                saveAudioBatch(
+                    self.loader.postprocess(self.true_pair),
+                    path=output_dir,
+                    basename=f'pair_audio_scale_{scale}',
+                    overwrite=True)
 
-        if self.vis_manager != None:
-            output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
-            self.vis_manager.set_postprocessing(
-                self.loader.get_postprocessor())
-            self.vis_manager.publish(
-                true[:5], 
-                labels=[], 
-                name=f'real_scale_{scale}', 
-                output_dir=output_dir)
-            self.vis_manager.publish(
-                fake[:5], 
-                labels=[], 
-                name=f'gen_scale_{scale}', 
-                output_dir=output_dir)
+            if self.vis_manager != None:
+                output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
+                self.vis_manager.set_postprocessing(
+                    self.loader.get_postprocessor())
+                self.vis_manager.publish(
+                    true[:5],
+                    labels=[],
+                    name=f'real_scale_{scale}',
+                    output_dir=output_dir)
+                self.vis_manager.publish(
+                    fake[:5],
+                    labels=[],
+                    name=f'gen_scale_{scale}',
+                    output_dir=output_dir)

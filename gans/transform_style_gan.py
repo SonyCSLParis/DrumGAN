@@ -129,14 +129,16 @@ class TStyleGAN(ProgressiveGAN):
         z = z.to(self.device)
         x = x.to(self.device)
         if getAvG:
-            if toCPU:
-                return self.avgG(z, x).cpu()
-            else:
-                return self.avgG(z, x)
-        elif toCPU:
-            return self.netG(z, x).detach().cpu()
+            output = self.avgG(z, x)
         else:
-            return self.netG(z, x).detach()
+            output = self.netG(z, x)
+
+        output = output[:, :-1]
+
+        if toCPU:
+            return output.detach().cpu()
+        return output
+
 
     def get_lrs_from_file(self):
         with open("lrs.txt", "r") as f:
@@ -160,7 +162,7 @@ class TStyleGAN(ProgressiveGAN):
 
         # print(f"\nSlidingAvg = {self.lossDslidingAvg}")
 
-        _, self.config.learningRate[1], _, _ = self.get_lrs_from_file()
+        _, self.config.learningRate[1], _, _, _ = self.get_lrs_from_file()
 
         print(f"\nLearningRateD = {self.config.learningRate[1]}")
 
@@ -169,7 +171,7 @@ class TStyleGAN(ProgressiveGAN):
         batch_size = self.x.size(0)
 
         inputLatent, _ = self.buildNoiseData(batch_size)
-        x_fake = self.netG(inputLatent, self.y_generator).detach().float()
+        x_fake = self.netG(inputLatent, self.y_generator).detach().float()[:, :-1]
 
         if self.ignore_phase:
             self.y[:, 1, ...] = 0
@@ -243,7 +245,7 @@ class TStyleGAN(ProgressiveGAN):
 
     def optimizeG(self, allLosses, iter):
 
-        self.config.learningRate[0], _, mse_fact, adv_fact = self.get_lrs_from_file()
+        self.config.learningRate[0], _, mse_fact, adv_fact, mask_fact = self.get_lrs_from_file()
 
         print(f"LearningRateG = {self.config.learningRate[0]}")
 
@@ -274,6 +276,11 @@ class TStyleGAN(ProgressiveGAN):
                              self.x.cpu().detach().numpy()[0, 1])
             save_spectrogram("plots", f"gen_spect_{iter}.png",
                              x_fake.cpu().detach().numpy()[0, 0])
+            save_spectrogram("plots", f"gen_phase_{iter}.png",
+                             x_fake.cpu().detach().numpy()[0, 1])
+            save_spectrogram("plots", f"gen_mask_{iter}.png",
+                             x_fake.cpu().detach().numpy()[0, 2])
+
             inputLatent2, _ = self.buildNoiseData(batch_size)
             with torch.no_grad():
                 x_fake2 = self.netG(inputLatent2, self.y_generator)
@@ -281,8 +288,7 @@ class TStyleGAN(ProgressiveGAN):
                                  x_fake2.cpu().detach().numpy()[0, 0])
                 save_spectrogram("plots", f"gen_phase2_{iter}.png",
                                  x_fake2.cpu().detach().numpy()[0, 1])
-            save_spectrogram("plots", f"gen_phase_{iter}.png",
-                             x_fake.cpu().detach().numpy()[0, 1])
+
             save_spectrogram("plots", f"mp3_spect_{iter}.png",
                              self.y_generator.cpu().detach().numpy()[0, 0])
             save_spectrogram("plots", f"mp3_phase_{iter}.png",
@@ -290,9 +296,9 @@ class TStyleGAN(ProgressiveGAN):
 
         # #2 Status evaluation
         if self.sanity:
-            fake_xy = torch.cat([self.x, x_fake], dim=1)
+            fake_xy = torch.cat([self.x, x_fake[:, :-1]], dim=1)
         else:
-            fake_xy = torch.cat([self.y_generator, x_fake], dim=1)
+            fake_xy = torch.cat([self.y_generator, x_fake[:, :-1]], dim=1)
 
         D_fake = self.netD(fake_xy, False)
 
@@ -300,17 +306,24 @@ class TStyleGAN(ProgressiveGAN):
         lossGFake = self.lossCriterion.getCriterion(D_fake, False)
         lossGFake = -lossGFake
 
-        lossMSE = ((x_fake - self.x) ** 2).mean()
+        sig = nn.Sigmoid()
+
+        MASK = sig(x_fake[:, -1:])
+
+        lossMSE = (((x_fake[:, :-1] - self.x) * MASK) ** 2).mean()
 
         #lossGFake = lossMSE * 0
 
         allLosses["lossG_fake"] = lossGFake.item()
 
-        lossGFake = lossGFake * adv_fact + lossMSE * mse_fact
+        lossMASK = MASK.mean()
+
+        lossGFake = lossGFake * adv_fact + lossMSE * mse_fact - lossMASK * mask_fact
 
         allLosses['mse_loss'] = lossMSE.item()
 
         print(f"MSE={lossMSE.item()}")
+        print(f"Mask={lossMASK.item()}")
 
         lossGFake.backward()
         finiteCheck(self.getOriginalG().parameters())
