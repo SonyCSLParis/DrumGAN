@@ -1,11 +1,11 @@
 {
-    "name": "MP3_to_WAV23LearnMSE0",
+    "name": "MP3_to_WAV23LearnMSE1GLossNorm",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {
         "dbname": "mp3towav",
-        "data_path": "/data/nsynth/train/json_wav/audio/wav",
-        "data_path2": "/data/nsynth/train/json_wav/audio/wav_of_16k_mp3",
+        "data_path": "/data/nsynth/train/json_wav/audio/subset_wav",
+        "data_path2": "/data/nsynth/train/json_wav/audio/subset_wav_of_16k_mp3",
         "shuffle": true,
         "load_metadata": true,
         "criteria": {
@@ -89,17 +89,17 @@
         "transposed": false,
         "depthScales": [
             [32, 256],
-            [32, 128],
-            [64, 64],
+            [32, 256],
+            [64, 128],
+            [128, 128],
+            [256, 64],
+            [512, 64],
+            [256, 32],
             [128, 32],
-            [256, 16],
-            [512, 16],
-            [256, 16],
-            [128, 16],
-            [64, 16],
-            [64, 16],
-            [32, 16],
-            [32, 16]
+            [64, 32],
+            [64, 32],
+            [32, 32],
+            [32, 32]
         ],
         "miniBatchSize": [
             20,

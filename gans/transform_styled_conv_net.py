@@ -205,7 +205,7 @@ class TStyledGNet(StyledGNet):
             out = add_grad_map(out)
             #out = add_input(out, scale_interp(x_copy, size=self.outputSizes[i]))
 
-            if self.uNet and i > self.nScales // 2:
+            if self.uNet and i > self.nScales // 2: # and i < self.nScales - 1:
                 try:
                     out = out + outs[self.nScales-i-1]
                 except RuntimeError:
@@ -236,7 +236,7 @@ class TStyledDNet(DNet):
     def initScale0Layer(self):
         # Minibatch standard deviation
         dimEntryScale0 = self.depthScale0
-        self.fromRGBLayers.append(EqualizedConv2d(self.dimInput, self.depthScale0, 1,
+        self.fromRGBLayers.append(EqualizedConv2d(self.dimInput + 2, self.depthScale0, 1,
                                                   equalized=self.equalizedlR,
                                                   initBiasToZero=self.initBiasToZero))
         self.groupScaleZero.append(EqualizedConv2d(dimEntryScale0, self.depthScale0,
@@ -290,7 +290,7 @@ class TStyledDNet(DNet):
             outs.append(x)
 
         for i, groupLayer in enumerate(reversed(self.scaleLayers)):
-            if i > 6:
+            if i > 4:
 
                 x = F.pad(x, [padding] * 4, mode="reflect")
 
@@ -300,7 +300,8 @@ class TStyledDNet(DNet):
 
                 x = F.pad(x, [-padding] * 4)
 
-                x = pool(x)
+                if i != 6 and i != 8:
+                    x = pool(x)
                 #x = add_grad_map(x)
 
                 if self.uNet and i >= nScales // 2:

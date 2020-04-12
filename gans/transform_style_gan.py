@@ -188,7 +188,7 @@ class TStyleGAN(ProgressiveGAN):
         if self.sanity:
             true_xy = torch.cat([self.x, self.x], dim=1)
         else:
-            true_xy = torch.cat([self.y, self.x], dim=1)
+            true_xy = torch.cat([self.y, self.x, self.x - self.y], dim=1)
 
         D_real = self.netD(true_xy, False)
 
@@ -197,7 +197,7 @@ class TStyleGAN(ProgressiveGAN):
         if self.sanity:
             fake_xy = torch.cat([self.x, x_fake], dim=1)
         else:
-            fake_xy = torch.cat([self.y_generator, x_fake], dim=1)
+            fake_xy = torch.cat([self.y_generator, x_fake, x_fake - self.y_generator], dim=1)
 
         D_fake = self.netD(fake_xy, False)
 
@@ -252,6 +252,7 @@ class TStyleGAN(ProgressiveGAN):
 
         print(f"LearningRateG = {self.config.learningRate[0]}")
 
+        sig = nn.Sigmoid()
         self.optimizerG = self.getOptimizerG()
         batch_size = self.x.size(0)
         # Update the generator
@@ -282,9 +283,10 @@ class TStyleGAN(ProgressiveGAN):
             save_spectrogram("plots", f"gen_phase_{iter}.png",
                              x_fake.cpu().detach().numpy()[0, 1])
             save_spectrogram("plots", f"gen_mask_{iter}.png",
-                             x_fake.cpu().detach().numpy()[0, 2])
+                             sig(x_fake).cpu().detach().numpy()[0, 2])
 
             inputLatent2, _ = self.buildNoiseData(batch_size)
+            inputLatent2 *= noise_fact
             with torch.no_grad():
                 x_fake2 = self.netG(inputLatent2, self.y_generator)
                 save_spectrogram("plots", f"gen_spect2_{iter}.png",
@@ -301,17 +303,16 @@ class TStyleGAN(ProgressiveGAN):
         if self.sanity:
             fake_xy = torch.cat([self.x, x_fake[:, :-1]], dim=1)
         else:
-            fake_xy = torch.cat([self.y_generator, x_fake[:, :-1]], dim=1)
+            fake_xy = torch.cat([self.y_generator, x_fake[:, :-1], x_fake[:, :-1] - self.y_generator], dim=1)
 
         D_fake = self.netD(fake_xy, False)
 
         # #3 GAN criterion
         lossGFake = self.lossCriterion.getCriterion(D_fake, False)
+        #lossGFake = -100 * lossGFake / abs(allLosses["Spread_R-F"])
         lossGFake = -lossGFake
 
-        sig = nn.Sigmoid()
-
-        MASK = sig(x_fake[:, -1:])
+        MASK = sig(x_fake[:, -1:]) * 0 + 1
 
         lossMSE = (((x_fake[:, :-1] - self.x) * MASK) ** 2).mean()
 

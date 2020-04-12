@@ -489,7 +489,8 @@ class StyledConv2DBlock(nn.Module):
 
     """
     def __init__(self, in_channel, out_channel, kernel_size=3, transposed=False,
-                 padding=1, style_dim=512, init_size=0, noise_injection=True):
+                 padding=1, style_dim=512, init_size=0, noise_injection=True,
+                 groups=1):
         super().__init__()
         self.noise_injection = noise_injection
         self.conv1 = EqualizedConv2d(in_channel,
@@ -504,7 +505,7 @@ class StyledConv2DBlock(nn.Module):
             self.noise1 = DummyBlock()
 
         self.adain1 = AdaptiveInstanceNorm2D(out_channel, style_dim)
-        self.lrelu1 = nn.LeakyReLU(0.2)
+        self.lrelu1 = nn.SELU() #nn.LeakyReLU(0.2)
 
         self.conv2 = EqualizedConv2d(out_channel, 
                                      out_channel, 
@@ -516,7 +517,7 @@ class StyledConv2DBlock(nn.Module):
         else:
             self.noise2 = DummyBlock()
         self.adain2 = AdaptiveInstanceNorm2D(out_channel, style_dim)
-        self.lrelu2 = nn.LeakyReLU(0.2)
+        self.lrelu2 = nn.SELU() #nn.LeakyReLU(0.2)
 
     def forward(self, input, style, noise):
 

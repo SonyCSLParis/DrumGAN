@@ -92,7 +92,7 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
 
             for x, y in t:
                 # run evaluation/tests
-                if self.iter % self.eval_i == 0:  # and self.iter != 0:
+                if self.iter % self.eval_i == 0 and self.iter != 0:
                     self.run_tests_evaluation_and_visualization(scale)
 
                 # Additionnal updates inside a scale
