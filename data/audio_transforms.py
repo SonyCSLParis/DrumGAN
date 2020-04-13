@@ -211,7 +211,10 @@ class Compose(object):
     def __call__(self, audio):
         for t in self.transforms:
             audio = t(audio)
-        return audio
+        try:
+            return audio.numpy()
+        except:
+            return audio
 
     def __repr__(self):
         format_string = self.__class__.__name__ + '('

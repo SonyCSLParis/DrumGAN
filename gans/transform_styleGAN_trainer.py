@@ -260,17 +260,17 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                     basename=f'pair_audio_scale_{scale}',
                     overwrite=True)
 
-            if self.vis_manager != None:
-                output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
-                self.vis_manager.set_postprocessing(
-                    self.loader.get_postprocessor())
-                self.vis_manager.publish(
-                    true[:5],
-                    labels=[],
-                    name=f'real_scale_{scale}',
-                    output_dir=output_dir)
-                self.vis_manager.publish(
-                    fake[:5],
-                    labels=[],
-                    name=f'gen_scale_{scale}',
-                    output_dir=output_dir)
+            # if self.vis_manager != None:
+            #     output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
+            #     self.vis_manager.set_postprocessing(
+            #         self.loader.get_postprocessor())
+            #     self.vis_manager.publish(
+            #         true[:5],
+            #         labels=[],
+            #         name=f'real_scale_{scale}',
+            #         output_dir=output_dir)
+            #     self.vis_manager.publish(
+            #         fake[:5],
+            #         labels=[],
+            #         name=f'gen_scale_{scale}',
+            #         output_dir=output_dir)

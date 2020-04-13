@@ -1,4 +1,5 @@
 import ipdb
+import librosa
 
 import torch.nn as nn
 
@@ -274,30 +275,20 @@ class TStyleGAN(ProgressiveGAN):
             self.x[:, 1, ...] = 0
 
         if iter % self.plot_iter == 0:
-            save_spectrogram("plots", f"wav_spect_{iter}.png",
-                             self.x.cpu().detach().numpy()[0, 0])
-            save_spectrogram("plots", f"wav_phase_{iter}.png",
-                             self.x.cpu().detach().numpy()[0, 1])
-            save_spectrogram("plots", f"gen_spect_{iter}.png",
-                             x_fake.cpu().detach().numpy()[0, 0])
-            save_spectrogram("plots", f"gen_phase_{iter}.png",
-                             x_fake.cpu().detach().numpy()[0, 1])
-            save_spectrogram("plots", f"gen_mask_{iter}.png",
-                             sig(x_fake).cpu().detach().numpy()[0, 2])
+            save_spectrogram("plots", f"wav_{iter}.png",
+                             self.x.cpu().detach().numpy()[0, :2])
+            save_spectrogram("plots", f"gen_{iter}.png",
+                             x_fake.cpu().detach().numpy()[0, :2])
 
             inputLatent2, _ = self.buildNoiseData(batch_size)
             inputLatent2 *= noise_fact
             with torch.no_grad():
                 x_fake2 = self.netG(inputLatent2, self.y_generator)
-                save_spectrogram("plots", f"gen_spect2_{iter}.png",
-                                 x_fake2.cpu().detach().numpy()[0, 0])
-                save_spectrogram("plots", f"gen_phase2_{iter}.png",
-                                 x_fake2.cpu().detach().numpy()[0, 1])
+                save_spectrogram("plots", f"gen2_{iter}.png",
+                                 x_fake2.cpu().detach().numpy()[0, :2])
 
-            save_spectrogram("plots", f"mp3_spect_{iter}.png",
-                             self.y_generator.cpu().detach().numpy()[0, 0])
-            save_spectrogram("plots", f"mp3_phase_{iter}.png",
-                             self.y_generator.cpu().detach().numpy()[0, 1])
+            save_spectrogram("plots", f"mp3_{iter}.png",
+                             self.y_generator.cpu().detach().numpy()[0, :2])
 
         # #2 Status evaluation
         if self.sanity:

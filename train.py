@@ -62,6 +62,11 @@ if __name__ == "__main__":
     parser.add_argument('--visdom', action='store_true',
                         help=' If a checkpoint is detected, do not try to load it')
 
+    import resource
+
+    rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
+
     #torch.autograd.set_detect_anomaly(True)
     cudnn.benchmark = True
     # Parse command line args

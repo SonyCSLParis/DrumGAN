@@ -9,7 +9,7 @@
         "shuffle": true,
         "load_metadata": true,
         "criteria": {
-            "size": 1000
+            "size": 100000
         }
     },
         
@@ -21,7 +21,7 @@
         "n_frames": 64,
         "hop_size": 256,
         "log_mag": true,
-        "ifreq": false,
+        "ifreq": true,
         "sample_rate": 16000,
         "audio_length": 16000
     },
