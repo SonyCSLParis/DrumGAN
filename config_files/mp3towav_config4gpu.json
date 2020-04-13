@@ -14,14 +14,14 @@
     },
         
     "transform_config": {
-        "transform": "specgrams",
+        "transform": "stft",
         "fade_out": false,
         "fft_size": 1024,
         "win_size": 1024,
         "n_frames": 64,
         "hop_size": 256,
         "log_mag": true,
-        "ifreq": true,
+        "ifreq": false,
         "sample_rate": 16000,
         "audio_length": 16000
     },
