@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV23LearnMSE1GLossNorm",
+    "name": "MP3_to_WAV24LeakyRELU",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {

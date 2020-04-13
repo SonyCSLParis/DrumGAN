@@ -309,7 +309,7 @@ class TStyleGAN(ProgressiveGAN):
 
         # #3 GAN criterion
         lossGFake = self.lossCriterion.getCriterion(D_fake, False)
-        #lossGFake = -100 * lossGFake / abs(allLosses["Spread_R-F"])
+        #lossGFake = -100 * lossGFake / abs(abs(allLosses["Spread_R-F"]) - 100)
         lossGFake = -lossGFake
 
         MASK = sig(x_fake[:, -1:]) * 0 + 1

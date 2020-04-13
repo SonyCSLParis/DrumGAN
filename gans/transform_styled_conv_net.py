@@ -231,7 +231,6 @@ class TStyledDNet(DNet):
         args['miniBatchNormalization'] = False
         self.uNet = False
         DNet.__init__(self, **args)
-        self.selu = nn.SELU()
 
     def initScale0Layer(self):
         # Minibatch standard deviation
@@ -326,7 +325,7 @@ class TStyledDNet(DNet):
 
         for i in range(1, len(self.groupScaleZero)):
             x_lin = self.groupScaleZero[i](x)
-            x = selu(x_lin)
+            x = self.leakyRelu(x_lin)
 
         out = self.decisionLayer(x)
 

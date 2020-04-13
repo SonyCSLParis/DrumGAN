@@ -558,7 +558,7 @@ class StyledConv2DBlockShallow(nn.Module):
             self.noise1 = DummyBlock()
 
         self.adain1 = AdaptiveInstanceNorm2D(out_channel, style_dim)
-        self.lrelu1 = nn.SELU() #nn.LeakyReLU(0.2)
+        self.lrelu1 = nn.LeakyReLU(0.2)
 
     def forward(self, input, style, noise):
 
