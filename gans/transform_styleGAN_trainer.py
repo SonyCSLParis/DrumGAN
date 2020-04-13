@@ -92,7 +92,7 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
 
             for x, y in t:
                 # run evaluation/tests
-                if self.iter % self.eval_i == 0 and self.iter != 0:
+                if self.iter % self.eval_i == 0: # and self.iter != 0:
                     self.run_tests_evaluation_and_visualization(scale)
 
                 # Additionnal updates inside a scale
@@ -136,17 +136,17 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                                      getAvG=True, toCPU=not self.useGPU)
         
         # predict labels for fake data
-        input_D = torch.cat([self.true_ref, fake], dim=1)
+        input_D = torch.cat([self.true_ref, fake, fake - self.true_ref], dim=1)
         D_fake, fake_emb = self.model.test_D(
             input_D, output_device='cpu', get_labels=False)
 
-        input_D2 = torch.cat([self.true_ref, fake_avg], dim=1)
+        input_D2 = torch.cat([self.true_ref, fake_avg, fake_avg - self.true_ref], dim=1)
         D_fake_avg, fake_avg_emb = self.model.test_D(
             input_D2, output_device='cpu', get_labels=False)
         
         # predict labels for true data
         # true, _ = self.loader.get_validation_set(len(self.ref_z), process=True)
-        input_true = torch.cat([self.true_ref, self.true_pair.float()], dim=1)
+        input_true = torch.cat([self.true_ref, self.true_pair.float(), self.true_pair.float() - self.true_ref], dim=1)
         D_true, true_emb = self.model.test_D(
             input_true, output_device='cpu', get_labels=False)
 
