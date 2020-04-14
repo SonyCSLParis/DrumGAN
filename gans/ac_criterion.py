@@ -68,15 +68,23 @@ class ACGANCriterion:
         self.att_loss = []
         for i, att in enumerate(attribKeysOrder):
             # check which loss to apply dependeing on typ
-            if attribKeysOrder[att]['type'] == str(float):
+
+            if attribKeysOrder[att]['loss'] == 'mse':
                 # if float we use MSE: regression
-                self.attribSize.append(1)
-                self.att_loss.append('regression')
-            else:
+                self.attribSize.append(len(attribKeysOrder[att]["values"]))
+                self.att_loss.append('mse')
+            elif attribKeysOrder[att]['loss'] == 'bce':
+                self.attribSize.append(len(attribKeysOrder[att]["values"]))
+                self.labelsOrder[att] = {index: label for label, index in
+                                     enumerate(attribKeysOrder[att]["values"])}
+                self.att_loss.append('bce')    
+            elif attribKeysOrder[att]['loss'] == 'xentropy':
                 self.attribSize.append(len(attribKeysOrder[att]["values"]))
                 self.labelsOrder[att] = {index: label for label, index in
                                      enumerate(attribKeysOrder[att]["values"])}
                 self.att_loss.append('xentropy')
+            else:
+                raise KeyError(f"Loss mode {attribKeysOrder[att]['loss']} not understood")
 
         self.labelWeights = torch.tensor(
             [1.0 for x in range(self.getInputDim())])
@@ -158,19 +166,25 @@ class ACGANCriterion:
                     total_att_size += self.attribSize[i]
         else:
             total_att_size = sum(self.attribSize)
-
-        batchSize = targetCat.size(0)
+        
+        batchSize = len(targetCat)
         idx = torch.arange(batchSize, device=targetCat.device)
-        targetOut = torch.zeros((batchSize, total_att_size))
+        targetOut = torch.zeros((batchSize, total_att_size), device=targetCat.device)
         shift = 0
-
+        shift2 = 0
         for i in range(self.nAttrib):
             if skipAtts and self.keyOrder[i] in self.skipAttDfake: continue
 
+
             if self.att_loss[i] in ['xentropy', 'sxentropy']:
-                targetOut[idx, shift + targetCat[:, i]] = 1
-            elif self.att_loss[i] == 'regression':
-                targetOut[idx, i] = targetCat[:, i]
+                targetOut[idx, (shift + targetCat[:, shift2]).int().tolist()] = 1
+                shift2 += 1
+            elif self.att_loss[i] in ['mse', 'bce']:
+                targetOut[idx, shift:shift + self.attribSize[i]] = \
+                    targetCat[:, shift2:shift2 + self.attribSize[i]]
+                shift2 += self.attribSize[i]
+            # elif self.att_loss[i] == 'bce':
+            #     ipdb.set_trace()
             shift += self.attribSize[i]
 
         return targetOut
@@ -191,24 +205,26 @@ class ACGANCriterion:
     def getPredictionLabels(self, outputD):
 
         shiftInput = 0
-
-        outIdx = []
+        # remove Wgan distance
+        outputD = outputD[:, :-1]
+        outIdx = torch.Tensor(size=(outputD.size(0), 0))
         outActivation = []
 
         for i in range(self.nAttrib):
             C = self.attribSize[i]
             locInput = outputD[:, shiftInput:(shiftInput+C)]
-            locPred = F.softmax(locInput, dim=1)
+            if self.att_loss[i] == 'xentropy':
+
+                locPred = F.softmax(locInput, dim=1)
+                tmp = torch.argmax(locPred, dim=1, keepdim=True).float()
+                outIdx = torch.cat([outIdx, tmp], dim=1)
+            elif self.att_loss[i] in ['bce', 'mse']:
+                locPred = locInput
+                locPred = F.sigmoid(locInput)
+                outIdx = torch.cat([outIdx, locPred], dim=1)
             outActivation.append(locPred)
-
-            tmp = torch.argmax(locPred, dim=1, keepdim=False)
-            # className = self.keyOrder[i]
-            # classLabel = [self.inputDict[className]["values"][t] for t in tmp]
-            outIdx.append(tmp)
-
             shiftInput += C
-
-        return torch.stack(outIdx).t(), outActivation
+        return outIdx, outActivation
 
     def soft_cross_entropy(self, pred, target, lprob=0.3, hprob=(0.7, 1.2)):
         n_cls = pred.size(1)
@@ -237,24 +253,33 @@ class ACGANCriterion:
             if self.keyOrder[i] not in self.skipAttDfake or not skipAtts:
 
                 locInput = outputD[:, shiftInput:(shiftInput+C)]
-                locTarget = target[:, shiftTarget]
-                if self.keyOrder[i] in self.allowMultiple:
-                    locTarget = target[:, shiftTarget:(shiftTarget+C)]
-                    locLoss = F.multilabel_soft_margin_loss(locInput, locTarget.long())
+                
+                # if self.keyOrder[i] in self.allowMultiple:
+                #     locTarget = target[:, shiftTarget:(shiftTarget+C)]
+                #     locLoss = F.multilabel_soft_margin_loss(locInput, locTarget.long())
+                #     shiftTarget += C
+                # else:
+                #     if self.soft_labels:
+                #         locLoss = self.soft_cross_entropy(locInput, locTarget)
+
+                if self.att_loss[i] == 'mse':
+                    locTarget = target[:, shiftTarget:shiftTarget + C]
+                    locInput = F.sigmoid(locInput)
+                    locTarget = locTarget.reshape(locInput.size())
+                    locLoss = F.mse_loss(locInput, locTarget)
+                    shiftTarget += C
+                elif self.att_loss[i] == 'bce':
+                    locTarget = target[:, shiftTarget:shiftTarget + C]
+                    locInput = torch.sigmoid(locInput)
+                    locLoss = F.binary_cross_entropy(locInput, locTarget)
                     shiftTarget += C
                 else:
-                    if self.soft_labels:
-                        locLoss = self.soft_cross_entropy(locInput, locTarget)
-                    
-                    elif self.att_loss[i] == 'regression':
-                        locInput = F.sigmoid(locInput)
-                        locTarget = locTarget.reshape(locInput.size())
-                        locLoss = F.mse_loss(locInput, locTarget)
-                    else:
-                        locLoss = F.cross_entropy(locInput, locTarget.long(), 
-                                              weight=self.labelWeights[shiftInput:(shiftInput+C)])
+                    locTarget = target[:, shiftTarget]
+                    locLoss = F.cross_entropy(locInput, locTarget.long(), 
+                                          weight=self.labelWeights[shiftInput:(shiftInput+C)])
+                    shiftTarget += 1
                 loss += locLoss
 
-            shiftTarget += 1
+            
             shiftInput += C
         return loss
