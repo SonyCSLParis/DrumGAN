@@ -32,7 +32,7 @@ def preprocess(preprocessing, data):
 class MP3ToWAV(AudioPairsLoader):
     def __init__(self,
                  path_wav,
-                 path_mp3,
+                 path_mp3="",
                  **kargs):
         self.path_wav = path_wav
         self.path_mp3 = path_mp3
