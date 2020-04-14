@@ -110,6 +110,8 @@ class AttClassifVisualizer(TensorVisualizer):
             self.metrics[name] = {att: {'p': [], 'r': [], 'fs':[]} for att in self.attributes}
 
         for i, att in enumerate(self.attributes):
+            if self.att_val_dict[att]['type'] not in [str(int), str(str)]:
+                continue
             win = att + name
             self.update_tokens(win)
             p, r, fs, support = precision_recall_fscore_support(true[i], fake[i])
