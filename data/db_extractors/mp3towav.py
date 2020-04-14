@@ -12,9 +12,14 @@ from tqdm import trange, tqdm
 from .base_db import get_base_db, get_hash_dict
 
 from pydub import AudioSegment
-from mutagen.mp3 import MP3
+# from mutagen.mp3 import MP3
+from functools import partial
 
 import ipdb
+import subprocess
+import multiprocessing
+import signal
+import resource
 
 
 __VERSION__ = "0.0.0"
@@ -25,6 +30,22 @@ criteria_keys.sort()
 def check_mp3_info(mp3_path):
     audio = MP3(mp3_path)
     return 
+
+def get_mp3_pydub(criteria, path_mp3, file):
+    filename = get_filename(file)
+    out_file = os.path.join(path_mp3, filename + '.mp3')
+    audio = AudioSegment.from_wav(file)
+    audio.export(out_file, **criteria)
+    return (file, out_file)
+
+def get_mp3(criteria, path_mp3, file):
+    filename = get_filename(file)
+    out_file = os.path.join(path_mp3, filename + '.mp3')
+    if not os.path.exists(out_file):
+        subprocess.call(['ffmpeg', '-hide_banner', '-loglevel', 'panic', 
+                        '-i', file, 'b:a', criteria.get('bitrate', '128k'), 
+                        out_file])
+    return (file, out_file)
 
 
 def extract(path_wav: str,
@@ -70,26 +91,14 @@ def extract(path_wav: str,
     
     n_folders = 0
     data = []
-    pbar = tqdm(enumerate(wav_files), desc='Reading files')
-    for i, wav_file in pbar:
-        filename = get_filename(wav_file)
-        mp3_file = os.path.join(path_mp3, filename + '.mp3')
-        if os.path.exists(mp3_file):
-            data.append((wav_file, mp3_file))
-            # item_metadata = check_mp3_info(mp3_file)
-        else:
-            audio = AudioSegment.from_wav(wav_file)
-            # item_metadata = criteria
-            # expor mp3 file
-            # TODO: allow multiple mp3 configurations
-            audio.export(mp3_file, **criteria)
-
-        data.append((wav_file, mp3_file))
-
-        description['data'].append((wav_file, mp3_file))
-        if len(data) >= size:
-            pbar.close()
-            break
+    shuffle(wav_files)
+    pbar = tqdm(wav_files[:size], desc='Reading files')
+    rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
+    p = multiprocessing.Pool(multiprocessing.cpu_count())
+    data = list(p.map(partial(get_mp3, criteria, path_mp3), pbar))
+    p.close()
+    p.join()
 
     description['attributes'] = criteria
     description['output_file'] = data_file
