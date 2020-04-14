@@ -120,10 +120,12 @@ class GANTrainer():
         # Loss printing
         self.loss_plot_i = loss_plot_i
         self.eval_i = eval_i
+
         self.loss_visualizer = \
             LossVisualizer(output_path=self.output_dir,
                            env=self.modelLabel,
-                           save_figs=True)
+                           save_figs=True,
+                           no_visdom=vis_manager.no_visdom)
 
         # init ref eval vectors
         self.init_reference_eval_vectors()
@@ -462,7 +464,7 @@ class GANTrainer():
         D_fake, fake_emb, \
         D_fake_avg, fake_avg_emb, \
         true, fake, fake_avg = self.test_GAN()
-        
+
         if self.modelConfig.ac_gan:
             output_dir = mkdir_in_path(iter_output_dir, 'classification_report')
             if not hasattr(self, 'cls_vis'):
@@ -474,6 +476,7 @@ class GANTrainer():
                     attributes=self.loader.header['attributes'].keys(),
                     att_val_dict=self.loader.header['attributes'])
             self.cls_vis.output_path = output_dir
+
             self.cls_vis.publish(
                 self.ref_labels_str, 
                 D_true,
@@ -482,7 +485,7 @@ class GANTrainer():
             
             self.cls_vis.publish(
                 self.ref_labels_str, 
-                D_true,
+                D_fake,
                 name=f'{scale}_fake',
                 title=f'scale {scale} Fake data')
 
@@ -502,11 +505,11 @@ class GANTrainer():
                 self.loader.get_postprocessor())
             self.vis_manager.publish(
                 true[:5], 
-                labels=D_true[0][:5], 
+                # labels=D_true[:][:5],
                 name=f'real_scale_{scale}', 
                 output_dir=output_dir)
             self.vis_manager.publish(
                 fake[:5], 
-                labels=D_fake[0][:5], 
+                # labels=D_fake[0][:5],
                 name=f'gen_scale_{scale}', 
                 output_dir=output_dir)
