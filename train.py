@@ -61,7 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('--no-visdom', action='store_true', dest='no_visdom',
                         help='Deactivate visdom visualization')
 
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     # Parse command line args
     args, unknown = parser.parse_known_args()
     # Initialize random seed
