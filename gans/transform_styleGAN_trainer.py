@@ -89,7 +89,7 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
 
             for x, y in t:
                 # Additionnal updates inside a scale
-                x = self.inScaleUpdate(self.iter, scale, x)
+                # x = self.inScaleUpdate(self.iter, scale, x)
                 # Optimize parameters
                 allLosses = self.model.optimizeParameters(x, y, iter=self.iter)
                 # Update and print losses

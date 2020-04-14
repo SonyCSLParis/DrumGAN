@@ -58,10 +58,10 @@ if __name__ == "__main__":
     parser.add_argument('--n_samples', type=int, default=10, help="Partition's value")
     parser.add_argument('--restart', action='store_true',
                         help=' If a checkpoint is detected, do not try to load it')
-    parser.add_argument('--visdom', action='store_true',
-                        help=' If a checkpoint is detected, do not try to load it')
+    parser.add_argument('--no-visdom', action='store_true', dest='no_visdom',
+                        help='Deactivate visdom visualization')
 
-    torch.autograd.set_detect_anomaly(True)
+    # torch.autograd.set_detect_anomaly(True)
     # Parse command line args
     args, unknown = parser.parse_known_args()
     # Initialize random seed
@@ -125,7 +125,8 @@ if __name__ == "__main__":
     getVisualizer(transform_config['transform'])(
         output_path=checkpoint_dir,
         env=exp_name,
-        sampleRate=transform_config.get('sample_rate', 16000))
+        sampleRate=transform_config.get('sample_rate', 16000),
+        no_visdom=args.no_visdom)
 
 
     # save config file

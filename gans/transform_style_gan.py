@@ -241,7 +241,7 @@ class TStyleGAN(ProgressiveGAN):
         inputLatent *= (noise_fact * 1e-4)
         inputLatent = inputLatent * 0 + 1
 
-        x_fake = self.netG(inputLatent, self.x_generator)
+        x_fake = self.netG(inputLatent, self.y_generator)
 
         # if self.ignore_phase:
         #     self.x_generator[:, 1, ...] = 0
@@ -274,7 +274,7 @@ class TStyleGAN(ProgressiveGAN):
         allLosses["lossG_fake"] = lossGFake.item()
 
         lossMSE = ((x_fake - self.x) ** 2).mean()
-        allLosses['mse_loss'] = lossMSE
+        allLosses['mse_loss'] = lossMSE.item()
         # print(f"Loss MSE = {lossMSE.item()}")
 
         if mse:
@@ -313,8 +313,8 @@ class TStyleGAN(ProgressiveGAN):
         # Retrieve the input data
         self.x = x.to(self.device).float()
         self.y = y.to(self.device).float()
-        if x_generator is None:
-            self.x_generator = self.y
+        if y_generator is None:
+            self.y_generator = self.y
         else:
             self.y_generator = y_generator.to(self.device).float()
 

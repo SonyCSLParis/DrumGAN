@@ -12,6 +12,7 @@ from utils.utils import loadPartOfStateDict, finiteCheck, \
 from torch import randperm
 
 import numpy as np
+import ipdb
 
 
 class ProgressiveGAN(BaseGAN):
@@ -371,15 +372,17 @@ class ProgressiveGAN(BaseGAN):
             allLosses['alpha'] = self.getOriginalD().alpha
         except AttributeError:
             pass
-
-        if fakeLabels is None:
-            self.fakeLabels = inputLabels
-        else:
-            self.fakeLabels = fakeLabels
         # Retrieve the input data
+        
+
         self.real_input, self.realLabels = input_batch.to(self.device).float(), None
         if self.config.attribKeysOrder is not None:
             self.realLabels = inputLabels.to(self.device)
+
+        if fakeLabels is None:
+            self.fakeLabels = self.realLabels
+        else:
+            self.fakeLabels = fakeLabels.to(self.device)
 
         n_samples = self.real_input.size()[0]
 
