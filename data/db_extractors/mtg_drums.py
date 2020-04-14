@@ -81,32 +81,32 @@ def get_standard_format(path: str, dbname='mtg-drums'):
                 continue
             att_type = type(item[att])
             if att not in attributes:
-                if att == 'reverb':
-                    attributes[att] = {
-                        'type': str(att_type),
-                        'values': [],
-                        'count': {}
-                    }
-                else:
-                    attributes[att] = {
-                        'type': str(att_type),
-                        'max': -1000.0,
-                        'min': 10000.0,
-                        'mean': 0.0,
-                        'count': []
-                    }   
-            if att == 'reverb':
-                if item[att] not in attributes[att]['values']:
-                    attributes[att]['values'].append(item[att])
-                    attributes[att]['count'][str(item[att])] = 0
-                attributes[att]['count'][str(item[att])] += 1
-            else:
+                # if att == 'reverb':
+                #     attributes[att] = {
+                #         'type': str(att_type),
+                #         'values': [],
+                #         'count': {}
+                #     }
+                # else:
+                attributes[att] = {
+                    'type': str(att_type),
+                    'max': -1000.0,
+                    'min': 10000.0,
+                    'mean': 0.0,
+                    'count': []
+                }   
+            # if att == 'reverb':
+            #     if item[att] not in attributes[att]['values']:
+            #         attributes[att]['values'].append(item[att])
+            #         attributes[att]['count'][str(item[att])] = 0
+            #     attributes[att]['count'][str(item[att])] += 1
+            # else:
 
-                if item[att] > attributes[att]['max']:
-                    attributes[att]['max'] = item[att]
-                if item[att] < attributes[att]['min']:
-                    attributes[att]['min'] = item[att]
-                attributes[att]['mean'] += item[att]
+            if item[att] > attributes[att]['max']:
+                attributes[att]['max'] = item[att]
+            if item[att] < attributes[att]['min']:
+                attributes[att]['min'] = item[att]
+            attributes[att]['mean'] += item[att]
 
             out_item['attributes'][att] = item[att]
         save_json(out_item, output_file)
