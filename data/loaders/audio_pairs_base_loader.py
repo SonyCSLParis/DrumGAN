@@ -51,12 +51,16 @@ class AudioPairsLoader(AudioDataLoader, ABC):
     def preprocess_data(self):
         print("Preprocessing data...")
         import multiprocessing
+        import resource
         p = multiprocessing.Pool(multiprocessing.cpu_count())
+        rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
+
         self.data_x, self.data_y = list(zip(*self.data))
         self.data_x = list(p.map(self.preprocessing,
             tqdm(self.data_x, desc='preprocessing-x')))
         
-        self.data_y = list(map(self.preprocessing,
+        self.data_y = list(p.map(self.preprocessing,
             tqdm(self.data_y, desc='preprocessing-loop')))
         # uncomment for parallel processing of pair data (not working localluy)
         # self.data_y = list(p.map(self.preprocessing,
@@ -68,6 +72,7 @@ class AudioPairsLoader(AudioDataLoader, ABC):
         shuffle(self.data)
 
     def index_to_labels(self, batch, transpose=False):
+
         labels = torch.zeros_like(batch).tolist()
         for i, att_dict in enumerate(self.header['attributes'].values()):
             for j, idx in enumerate(batch[:, i]):
@@ -107,5 +112,6 @@ class AudioPairsLoader(AudioDataLoader, ABC):
                 torch.stack([self.getitem_processing(v) for v in val_batch_x])
             val_batch_y = \
                 torch.stack([self.getitem_processing(v) for v in val_batch_y])
-        return torch.FloatTensor(val_batch_x), torch.FloatTensor(val_batch_y)
+        return torch.stack(val_batch_x), torch.stack(val_batch_y)
+        # return torch.FloatTensor(val_batch_x), torch.FloatTensor(val_batch_y)
 
