@@ -1,5 +1,5 @@
 {
-    "name": "MP3_to_WAV26SELU",
+    "name": "MP3_to_WAV27ReLU",
     "comments": "test",
     "output_path": "output_networks",
     "loader_config": {
@@ -14,7 +14,7 @@
     },
 
     "transform_config": {
-        "transform": "specgrams",
+        "transform": "stft",
         "fade_out": true,
         "fft_size": 1024,
         "win_size": 1024,

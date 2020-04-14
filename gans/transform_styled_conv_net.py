@@ -37,7 +37,7 @@ def add_grad_map(x):
         gradv_rep1 = gradv_rep1.cuda()
 
     x[:, 0:1, :, :] = gradv[None, None, :, None]
-    x[:, 1:2, :, :] = gradv_rep0[None, None, :, None]
+    #x[:, 1:2, :, :] = gradv_rep0[None, None, :, None]
     #x[:, 2:3, :, :] = gradv_rep1[None, None, :, None]
     x[:, 3:4, :, :] = gradh[None, None, None, :]
     return x
@@ -145,7 +145,7 @@ class TStyledGNet(StyledGNet):
             depthNewScale = depthNewScale[0]
         depthLastScale = self.scalesDepth[-1]
         self.scalesDepth.append(depthNewScale) 
-        self.scaleLayers.append(StyledConv2DBlockShallow(
+        self.scaleLayers.append(StyledConv2DBlock(
                                                 in_channel=depthLastScale,
                                                 out_channel=depthNewScale,
                                                 kernel_size=self.kernelSize, 
