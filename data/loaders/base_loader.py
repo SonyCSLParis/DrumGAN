@@ -79,7 +79,7 @@ class DataLoader(ABC, data.Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        labels = torch.LongTensor(self.metadata[index])
+        labels = torch.Tensor(self.metadata[index])
         if self.getitem_processing:
             return self.getitem_processing(self.data[index]), labels
         else:
@@ -104,17 +104,38 @@ class DataLoader(ABC, data.Dataset):
         return self.header['attributes']
 
     def get_random_labels(self, batch_size):
-        labels = torch.zeros((batch_size, len(self.header['attributes'])))
+        labels = torch.zeros((batch_size, len(self.metadata[0])))
+        shift = 0
         for i, att_dict in enumerate(self.header['attributes'].values()):
-            labels[:, i] = torch.multinomial(
-                torch.Tensor(list(att_dict['count'].values())),
-                batch_size, replacement=True)
+            if att_dict['type'] in [str(str), str(int)]:
+                labels[:, shift] = torch.multinomial(
+                    torch.Tensor(list(att_dict['count'].values())),
+                    batch_size, replacement=True)
+                shift += 1
+            elif att_dict['type'] == str(list):
+                norm_hist = torch.Tensor(list(att_dict['count'].values()))/self.header['size']
+                norm_hist = norm_hist.unsqueeze(0).repeat(batch_size, 1)
+                labels[:, shift: shift + len(att_dict['values'])] = \
+                    torch.bernoulli(norm_hist)
+                shift += len(att_dict['values'])
+            elif att_dict['type'] == str(float):
+                _min = torch.Tensor(list(att_dict['min'].values()))
+                _max = torch.Tensor(list(att_dict['max'].values()))
+                rand = torch.rand(batch_size, len(att_dict['values']))
+                labels[:, shift: shift + len(att_dict['values'])] = \
+                    (rand + _min) * _max
+                shift += len(att_dict['values'])
         return labels
 
     def preprocess_data(self):
         print("Preprocessing data...")
         import multiprocessing
         import signal
+        import resource
+
+        rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
+
         signal.signal(signal.SIGALRM, timeout)
 
         p = multiprocessing.Pool(multiprocessing.cpu_count())
@@ -128,6 +149,7 @@ class DataLoader(ABC, data.Dataset):
             print("Running non-parallel processing")
             self.data = list(map(self.preprocessing,
                             tqdm(self.data, desc='preprocessing-loop')))
+        signal.alarm(0)
         print("Data preprocessing done")
 
     @abstractmethod
@@ -146,13 +168,27 @@ class DataLoader(ABC, data.Dataset):
         self.data, self.metadata = zip(*combined)
 
     def index_to_labels(self, batch, transpose=False):
-        labels = torch.zeros_like(batch).tolist()
-        for i, att_dict in enumerate(self.header['attributes'].values()):
-            for j, idx in enumerate(batch[:, i]):
-                labels[j][i] = att_dict['values'][idx]
+        label_batch = []
+        for j, b in enumerate(batch):
+            shift = 0
+            labels = []
+            for i, att_dict in enumerate(self.header['attributes'].values()):
+                if att_dict['type'] == str(float):
+                    labels += [b[shift: shift + len(att_dict['values'])].tolist()]
+                    shift += len(att_dict['values'])
+                elif att_dict['type'] == str(list):
+                    bl = b[shift: shift + len(att_dict['values'])]
+                    labels += [bl.tolist()]
+                    # labels += [att_dict['values'][k] for k in np.argwhere(bl==1)[0]]                   
+                    shift += len(att_dict['values'])           
+                else:
+                    assert b[shift] % 1 == 0, "Error in attribute orders"
+                    labels += [att_dict['values'][int(b[shift])]]
+                    shift += 1
+            label_batch.append(labels)
         if transpose:
-            return list(zip(*labels))
-        return labels
+            return list(zip(*label_batch))
+        return label_batch
 
     def train_val_split(self, tr_val_split=0.9):
         assert len(self.data) > 0, "tr/val split: No loaded data yet"
@@ -179,7 +215,8 @@ class DataLoader(ABC, data.Dataset):
         if batch_size is None:
             batch_size = len(self.val_data)
         val_batch = self.val_data[:batch_size]
-        val_label_batch = torch.LongTensor(self.val_labels[:batch_size])
+
+        val_label_batch = torch.Tensor(self.val_labels[:batch_size])
         if process:
             val_batch = \
                 torch.stack([self.getitem_processing(v) for v in val_batch])
