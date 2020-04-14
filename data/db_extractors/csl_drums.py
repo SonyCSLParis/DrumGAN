@@ -12,17 +12,27 @@ from tqdm import trange, tqdm
 from .base_db import get_base_db, get_hash_dict
 
 import ipdb
-
+import numpy as np
 
 __VERSION__ = "0.0.0"
 MAX_N_FILES_IN_FOLDER = 10000
 
-csl_keys = ['instrument', 'tags']
+csl_keys = ['instrument', 'tags', 'audio-commons']
+csl_keys.sort()
+
 csl_instruments = ['kick', 'snare', 'hats']
+csl_instruments.sort()
+
 csl_tags = ['lofi', 'techno', 'electronic', 'house', '808', '707', 'CL', '70s', \
             'trap', 'open', 'closed', 'cymbal' 'OP', 'clap', 'hiphop', 'clean', \
             'durty', 'short', 'long', 'punch']
-csl_keys.sort()
+csl_tags.sort()
+
+audio_commons_keys = ['duration', 'loudness', 'dynamic_range', \
+            'temporal_centroid', 'log_attack_time', \
+            'hardness', 'depth', 'brightness', 'roughness',\
+            'boominess', 'warmth', 'sharpness']
+audio_commons_keys.sort()
 
 def get_standard_format(path: str, dbname='csl-drums'):
     description = get_base_db(dbname, __VERSION__)
@@ -38,13 +48,19 @@ def get_standard_format(path: str, dbname='csl-drums'):
         return read_json(extraction_config)
 
     n_folders = 0
-    attributes = {'instrument': {'type': str(str), 'values': csl_instruments, 'count': {i: 0 for i in csl_instruments}}}
+    attributes = {'instrument': {
+                    'type': str(str),
+                    'loss': 'xentropy', 
+                    'values': csl_instruments, 
+                    'count': {i: 0 for i in csl_instruments}}}
 
     i = 0
     for root, dirs, files in tqdm(os.walk(path)):
         if any(f.endswith('.wav') for f in files):
             inst_att = get_filename(os.path.dirname(root))
             files = list(filter(lambda x: x.endswith('.wav'), files))
+            # filter files that have _analysis.json
+            files = list(filter(lambda x: os.path.exists(os.path.join(root, get_filename(x) + '_analysis.json')), files))
             attributes['instrument']['count'][inst_att] += len(files)
 
             # pbar = tqdm(files, desc=f'Reading {inst_att} files')
@@ -55,6 +71,7 @@ def get_standard_format(path: str, dbname='csl-drums'):
                     output_dir = mkdir_in_path(root_dir, f'folder_{n_folders}')
 
                 filename = get_filename(file)
+                
                 output_file = os.path.join(output_dir, filename + '.json')
                 description['data'].append(output_file)
 
@@ -63,6 +80,32 @@ def get_standard_format(path: str, dbname='csl-drums'):
                     'attributes': {}
                 }
                 for att in csl_keys:
+
+                    if att == 'audio-commons':
+                        if att not in attributes:
+                            attributes[att] = {
+                                'values': audio_commons_keys,
+                                'type': str(float),
+                                'loss': 'mse',
+                                'max': {a: -1000.0 for a in audio_commons_keys},
+                                'mean': {a: 0.0 for a in audio_commons_keys},
+                                'min': {a: 1000.0 for a in audio_commons_keys},
+                                'var': {a: 0.0 for a in audio_commons_keys}
+                            }
+                        ac_file = os.path.join(root, filename + '_analysis.json')
+                        assert os.path.exists(ac_file), f"File {ac_file} does not exist"
+                        ac_atts = read_json(ac_file)
+                        out_item['attributes'][att] = {}
+                        for ac_att in audio_commons_keys:
+                            if ac_att not in ac_atts: continue
+                            acval = ac_atts[ac_att]
+                            out_item['attributes'][att][ac_att] = acval
+                            if acval > attributes[att]['max'][ac_att]:
+                                attributes[att]['max'][ac_att] = acval
+                            if acval < attributes[att]['min'][ac_att]:
+                                attributes[att]['min'][ac_att] = acval
+                            attributes[att]['mean'][ac_att] += acval
+                    
                     if att not in attributes:
                         attributes[att] = {
                             'values': [],
@@ -87,6 +130,9 @@ def get_standard_format(path: str, dbname='csl-drums'):
                         out_item['attributes'][att] = inst_att
                 i+=1
                 save_json(out_item, output_file)
+
+    for ac in audio_commons_keys:
+        attributes['audio-commons']['mean'][ac] /= i
     description['attributes'] = attributes
     description['total_size'] = len(description['data'])
     save_json(description, description_file)
@@ -102,7 +148,7 @@ def extract(path: str, criteria: dict={}, download: bool=False):
             "Filter criteria not understood"
 
     if not os.path.exists(path):
-        print('NSynth folder not found')
+        print('CSL folder not found')
         sys.exit(1)
 
     root_dir = mkdir_in_path(path, f'extractions')
@@ -129,20 +175,54 @@ def extract(path: str, criteria: dict={}, download: bool=False):
 
     # get database attribute values and counts 
     # given the filtering criteria
-    attribute_dict = {att: {'values': [], 'count': {}} for att in out_attributes} 
-    for att in attribute_dict.keys():
-        if att in criteria.get('filter', {}).keys(): 
-            if att in ['pitch', 'instrument_id']:
-                attribute_dict[att]['values'] = list(range(*criteria['filter'][att]))
-                
+    attribute_dict = {} 
+    for att in out_attributes:
+        if att not in attribute_dict:
+            if att == 'audio-commons':
+                attribute_dict[att] = {
+                    'values': [],
+                    'type': str(float),
+                    'loss': 'mse',
+                    'max': {},
+                    'min': {},
+                    'mean': {},
+                    'var': {}
+                }
             else:
-                criteria['filter'][att].sort()
-                attribute_dict[att]['values'] = criteria['filter'][att]
+                attribute_dict[att] = {
+                    'values': [],
+                    'type': str(str),
+                    'loss': 'xentropy',
+                    'count': {}
+                }
+        if att in criteria.get('filter', {}).keys():
+            criteria['filter'][att].sort()
+
+            attribute_dict[att]['values'] = criteria['filter'][att]
+            if att == 'audio-commons':
+                for ac_att in criteria['filter'][att]:
+                    attribute_dict[att]['max'][ac_att] = standard_desc['attributes'][att]['max'][ac_att]
+                    attribute_dict[att]['min'][ac_att] = standard_desc['attributes'][att]['min'][ac_att]
+                    attribute_dict[att]['mean'][ac_att] = standard_desc['attributes'][att]['mean'][ac_att]
+                    attribute_dict[att]['var'][ac_att] = 0.0
         else:
             attribute_dict[att] = standard_desc['attributes'][att].copy()
 
         attribute_dict[att]['values'].sort()
         attribute_dict[att]['count'] = {str(k): 0 for k in attribute_dict[att]['values']}
+
+    # get absolute max for normalization value
+    if 'audio-commons' in attribute_dict:
+        for i, att in enumerate(attribute_dict['audio-commons']['values']):
+            if i == 0:
+                max_norm_val = attribute_dict['audio-commons']['max'][att]
+                min_norm_val = attribute_dict['audio-commons']['min'][att]
+            else:
+                if attribute_dict['audio-commons']['max'][att] > max_norm_val:
+                    max_norm_val = attribute_dict['audio-commons']['max'][att]
+                if attribute_dict['audio-commons']['min'][att] < min_norm_val:
+                    min_norm_val = attribute_dict['audio-commons']['min'][att]
+    
 
     size = criteria.get('size', standard_desc['total_size'])
     balance = False
@@ -171,25 +251,26 @@ def extract(path: str, criteria: dict={}, download: bool=False):
         # filtered attribute criteria
         skip = False
         for att, val in item_atts.items():
-        # for att in out_attributes:
-            # val = item_atts[att]
-            if att in criteria.get('filter', {}):
-                if att not in ['pitch', 'instrument_id']:
-                    if val not in criteria['filter'][att]:
-                        skip = True
-                        break
             if att not in attribute_dict:
                 continue
-
-            if type(val) is list:
-                if any(v in attribute_dict[att]['values'] for v in val) or val == []:
-                    continue
-
-            if val not in attribute_dict[att]['values']: 
-                skip = True
-                break
+            if att == 'audio-commons':
+                for ac_att in attribute_dict[att]['values']:
+                    if ac_att not in val.keys():
+                        skip = True
+                        break
+                    if np.isnan(val[ac_att]):
+                        print(f"NaN value found in file {file} and att {ac_att}, skipping...")
+                        skip = True
+                        break
+            elif att in criteria.get('filter', {}):
+                if val not in criteria['filter'][att]:
+                    skip = True
+                    break
+            else:
+                if val not in attribute_dict[att]['values']: 
+                    skip = True
+                    break
         if skip: continue
-
         # check balance of attributes
         if balance:
             for b_att in b_atts:
@@ -204,27 +285,20 @@ def extract(path: str, criteria: dict={}, download: bool=False):
         for att in out_attributes:
             val = item_atts[att]
             # if attribute is multi-label (n out of m)
-            if type(val) is list:
-                if all(isinstance(n, str) for n in val):
-                    # we now consider binary attributes (1 or 0)
-                    data_val = [0] * len(attribute_dict[att]['values'])
-                    for v in val:
-                        if v in attribute_dict[att]['values']:
-                            idx = attribute_dict[att]['values'].index(v)
-                            attribute_dict[att]['count'][str(v)] += 1
-                            data_val[idx] = 1
-                        else:
-                            continue
-                # TODO: consider float values (audioset) 
-                # --> counts and value tracking makes no sense
-                elif all(isinstance(n, float) for n in val):
-                    pass
+            if att == 'audio-commons':
+                
+                for ac_att in attribute_dict[att]['values']:
+                    acval = (val[ac_att] - min_norm_val) / (max_norm_val - min_norm_val)
+                    data_item += [acval]
+                    attribute_dict[att]['var'][ac_att] += \
+                        (attribute_dict[att]['mean'][ac_att] - val[ac_att])**2
             else:
                 idx = attribute_dict[att]['values'].index(val)
                 attribute_dict[att]['count'][str(val)] += 1
-                data_val = idx
-            data_item.append(data_val)
+                data_item += [idx]
+            # data_item.append(data_val)
         if skip: continue
+
         data.append(item_path)
         metadata.append(data_item)
         extraction_dict['data'].append(file)
@@ -232,10 +306,16 @@ def extract(path: str, criteria: dict={}, download: bool=False):
             pbar.close()
             break
         
+    # compute std:
+    
+    if 'audio-commons' in attribute_dict:
+        for att in attribute_dict['audio-commons']['values']:
+            attribute_dict['audio-commons']['var'][att] /= len(data)
     extraction_dict['attributes'] = attribute_dict
     extraction_dict['output_file'] = data_file
     extraction_dict['size'] = len(data)
     extraction_dict['hash'] = extraction_hash
+    
     with open(data_file, 'wb') as fp:
         pickle.dump((data, metadata, extraction_dict), fp)
     save_json(extraction_dict, desc_file)
