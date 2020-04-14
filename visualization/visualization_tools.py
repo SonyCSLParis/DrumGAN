@@ -23,7 +23,7 @@ from os.path import join
 
 import matplotlib.pyplot as plt
 
-# from audio.tools import librosaSpec, resizeAudioTensor
+from utils.utils import librosaSpec #, resizeAudioTensor
 
 from .rainbowgram.wave_rain import wave2rain
 from .rainbowgram.rain2graph import rain2graph
@@ -76,6 +76,8 @@ def scatter_plotly(data, title, xtitle="time", ytitle="amplitude"):
     return fig
 
 def rainbowgram_matplot(audio, title, figsize=(6.4, 4.8)):
+    if type(audio) == torch.Tensor:
+        audio = audio.numpy()
     assert type(audio) is np.ndarray, "Error matplot_rainbowgram"
     fig = plt.figure(figsize=figsize)
     ax = fig.add_axes()

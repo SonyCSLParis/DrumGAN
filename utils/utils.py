@@ -9,6 +9,7 @@ from torch.nn.functional import interpolate
 from numpy import random
 from datetime import datetime
 
+
 def get_date():
     return datetime.now().strftime('%y_%m_%d')
 
@@ -545,3 +546,11 @@ def save_json(json_file, output_path):
         outfile = json.dump(json_file, file, indent=4)
         file.close()
     return outfile
+
+def librosaSpec(data):
+    from librosa.core import resample, stft
+    from librosa import amplitude_to_db, magphase
+
+    spectrum = stft(data)
+    mag, ph = magphase(spectrum)
+    return amplitude_to_db(mag), np.angle(ph)

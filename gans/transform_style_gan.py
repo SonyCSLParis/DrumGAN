@@ -274,6 +274,7 @@ class TStyleGAN(ProgressiveGAN):
             x_fake[:, 1, ...] = 0
             self.x[:, 1, ...] = 0
 
+
         if iter % self.plot_iter == 0:
             save_spectrogram("plots", f"wav_{iter}.png",
                              self.x.cpu().detach().numpy()[0, :2])
@@ -314,6 +315,7 @@ class TStyleGAN(ProgressiveGAN):
         lossMASK = MASK.mean()
 
         lossGFake = lossGFake * adv_fact + lossMSE * mse_fact - lossMASK * mask_fact
+
 
         allLosses['mse_loss'] = lossMSE.item()
 

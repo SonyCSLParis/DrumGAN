@@ -3,11 +3,14 @@ import numpy as np
 import torch
 from torch.nn.functional import interpolate
 from librosa.core import stft, istft, magphase, resample
+import ipdb
 
 
 def to_torch(x):
     if type(x) is np.ndarray:
         return torch.from_numpy(x).float()
+    elif type(x) == torch.Tensor:
+        return x.float()
     else:
         return torch.FloatTensor(x)
 
@@ -245,7 +248,6 @@ def instantaneous_freq(specgrams):
     else:
       mag = specgrams[0]
       ph = specgrams[1]
-
     uph = np.unwrap(ph, axis=1)
     uph_diff = np.diff(uph, axis=1)
     ifreq = np.concatenate([ph[:, :1], uph_diff], axis=1)

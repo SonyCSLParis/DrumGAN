@@ -10,24 +10,26 @@ from random import shuffle
 from tqdm import trange, tqdm
 
 from .base_db import get_base_db
-
+from numpy import argsort
 import ipdb
 
 
 __VERSION__ = "0.0.0"
 MAX_N_FILES_IN_FOLDER = 10000
 
-nsynth_keys = ['instrument_family_str', 'instrument', 'instrument_source_str', \
+nsynth_keys = ['audioset_pred', 'instrument_family_str', 'instrument', 'instrument_source_str', \
                'pitch', 'qualities_str', 'velocity']
+
 from_nsynth_keys = {
     'instrument_family_str': 'instrument',
     'instrument': 'instrument_id',
     'instrument_source_str': 'instrument_type',
     'pitch': 'pitch',
     'qualities_str': 'properties',
-    'velocity': 'velocity'
-
+    'velocity': 'velocity',
+    'audioset_pred': 'audioset'
 }
+
 nsynth_train_url = 'http://download.magenta.tensorflow.org/datasets/nsynth/nsynth-train.jsonwav.tar.gz'
 nsynth_valid_url = 'http://download.magenta.tensorflow.org/datasets/nsynth/nsynth-valid.jsonwav.tar.gz'
 nsynth_test_url = 'http://download.magenta.tensorflow.org/datasets/nsynth/nsynth-test.jsonwav.tar.gz'
@@ -51,7 +53,7 @@ def get_standard_format(path: str, dbname='nsynth'):
     if os.path.exists(description_file):
         return read_json(description_file)
 
-    nsynth_metadata = os.path.join(path, 'examples.json')
+    nsynth_metadata = os.path.join(path, 'examples_audioSet.json')
     nsynth_audio    = os.path.join(path, 'audio')
 
     root_dir = mkdir_in_path(path, f'nsynth_standard')
@@ -67,7 +69,7 @@ def get_standard_format(path: str, dbname='nsynth'):
     nsynth_description['total_size'] = len(nsynth_files)
     attributes = {}
     n_folders = 0
-
+    nsynth_files = list(filter(lambda x: get_filename(x) in metadata, nsynth_files))
     pbar = tqdm(enumerate(nsynth_files), desc='Reading files')
     for i, file in pbar:
         if i % MAX_N_FILES_IN_FOLDER == 0:
@@ -77,37 +79,67 @@ def get_standard_format(path: str, dbname='nsynth'):
         filename = get_filename(file)
         output_file = os.path.join(output_dir, filename + '.json')
         nsynth_description['data'].append(output_file)
-        if os.path.exists(output_file):
-            print(f'File {output_file} exists, skipping...')
+
         item = metadata[filename]
         out_item = {
             'path': file,
             'attributes': {}
         }
         for att in nsynth_keys:
+            myatt = from_nsynth_keys[att]
+            val = item[att]
+            if myatt not in attributes:
+                if type(val) in [str, int, list]:
+                    attributes[myatt] = {
+                        'values': [],
+                        'count': {},
+                        'type': str(type(item[att]))
+                    }
+                elif myatt == 'audioset':
+                    keys = list(val.keys())
+                    keys.sort()
+                    attributes['audioset'] = {
+                        k: {'type': str(float),
+                            'max': 0.0,
+                            'min': 1.0,
+                            'mean': 0.0,
+                            'var': 0.0} for k in keys}
 
-            my_att = from_nsynth_keys[att]
-            if my_att not in attributes:
-                attributes[my_att] = {
-                    'values': [],
-                    'count': {}
-                }
-            if type(item[att]) in [int, str]:
-                if item[att] not in attributes[my_att]['values']:
-                    attributes[my_att]['values'].append(item[att])
-                    attributes[my_att]['count'][str(item[att])] = 0
-                attributes[my_att]['count'][str(item[att])] += 1
+            if type(val) in [int, str]:
+                if val not in attributes[myatt]['values']:
+                    attributes[myatt]['values'].append(val)
+                    attributes[myatt]['count'][str(val)] = 0
+                attributes[myatt]['count'][str(val)] += 1
             if att == 'qualities_str':
-                for q in item[att]:
-                    if q not in attributes[my_att]['values']:
-                        attributes[my_att]['values'].append(q)
-                        attributes[my_att]['count'][str(q)] = 0
-                    attributes[my_att]['count'][str(q)] += 1
+                for q in val:
+                    if q == "reverb":
+                        continue
+                    if q not in attributes[myatt]['values']:
+                        attributes[myatt]['values'].append(q)
+                        attributes[myatt]['count'][str(q)] = 0
+                    attributes[myatt]['count'][str(q)] += 1
+            if myatt == 'audioset':
+                for k in attributes[myatt]:
+                    if val[k] > attributes[myatt][k]['max']:
+                        attributes[myatt][k]['max'] = val[k]            
+                    if val[k] < attributes[myatt][k]['min']:
+                        attributes[myatt][k]['min'] = val[k]
+                    attributes[myatt][k]['mean'] += val[k]
 
-            out_item['attributes'][my_att] = item[att]
+            out_item['attributes'][myatt] = val
         save_json(out_item, output_file)
 
+    audioset_order = []
+    as_keys = list(attributes['audioset'].keys())
+    for i, k in enumerate(as_keys):
+        attributes['audioset'][k]['mean'] /= nsynth_description['total_size']
+        audioset_order.append(attributes['audioset'][k]['mean'])
+
+    attributes['audioset']['activation_order'] = \
+        [as_keys[i] for i in argsort(audioset_order)]
+
     nsynth_description['attributes'] = attributes
+
     save_json(nsynth_description, description_file)
     return nsynth_description
 
@@ -152,31 +184,58 @@ def extract(path: str, criteria: dict={}, download: bool=False):
 
     # get database attribute values and counts 
     # given the filtering criteria
-    attribute_dict = {att: {'values': [], 'count': {}} for att in out_attributes} 
+    attribute_dict = {att: {'values': [], 'count': {}, 'type': ''} for att in out_attributes} 
     for att in attribute_dict.keys():
         if att in criteria.get('filter', {}).keys(): 
             if att in ['pitch', 'instrument_id']:
 
                 attribute_dict[att]['values'] = list(range(*criteria['filter'][att]))
-                
-            else:
+            elif att != 'audioset':
                 criteria['filter'][att].sort()
                 attribute_dict[att]['values'] = criteria['filter'][att]
-        else:
+        elif att != 'audioset':
             attribute_dict[att] = nsynth_standard_desc['attributes'][att].copy()
 
-        attribute_dict[att]['values'].sort()
-        attribute_dict[att]['count'] = {str(k): 0 for k in attribute_dict[att]['values']}
+        if att == 'audioset':
+            n_as_atts = len(nsynth_standard_desc['attributes'][att]['activation_order'])
+            if 'filter' in criteria:
+                n_as_atts = criteria['filter'].get('audioset', n_as_atts)
+
+            as_out_keys = nsynth_standard_desc['attributes'][att]['activation_order'][:-n_as_atts:-1]
+            as_out_keys.sort()
+            attribute_dict[att]['loss'] = 'bce'
+            attribute_dict[att]['type'] = str(float)
+            attribute_dict[att]['values'] = as_out_keys
+            attribute_dict[att]['var'] = {k: 0.0 for k in as_out_keys}
+            attribute_dict[att]['mean'] = {k: nsynth_standard_desc['attributes'][att][k]['mean'] for k in as_out_keys}
+            attribute_dict[att]['max'] = {k: nsynth_standard_desc['attributes'][att][k]['max'] for k in as_out_keys}
+            attribute_dict[att]['min'] = {k: nsynth_standard_desc['attributes'][att][k]['min'] for k in as_out_keys}
+            
+        else:
+            attribute_dict[att]['loss'] = 'xentropy'
+            if att == 'properties':
+                attribute_dict[att]['loss'] = 'bce'
+            attribute_dict[att]['type'] = nsynth_standard_desc['attributes'][att]['type']
+            attribute_dict[att]['values'].sort()
+            attribute_dict[att]['count'] = {str(k): 0 for k in attribute_dict[att]['values']}
 
     size = criteria.get('size', nsynth_standard_desc['total_size'])
     balance = False
+    
     if 'balance' in criteria:
         balance = True
         b_atts = criteria['balance']
 
         for b_att in b_atts:
             count = []
-            for v in attribute_dict[b_att]['values']:
+            if b_att in attribute_dict:
+                b_att_vals = attribute_dict[b_att]['values']
+            else:
+                if b_att in criteria.get('filter', {}):
+                    b_att_vals = criteria['filter'][b_att]
+                else:
+                    b_att_vals = nsynth_standard_desc['attributes'][b_att]['values']
+            for v in b_att_vals:
                 
                 count.append(nsynth_standard_desc['attributes'][b_att]['count'][str(v)])
             n_vals = len(count)
@@ -198,8 +257,10 @@ def extract(path: str, criteria: dict={}, download: bool=False):
         for att, val in item_atts.items():
         # for att in out_attributes:
             # val = item_atts[att]
+            if att == 'audioset':
+                continue
             if att in criteria.get('filter', {}):
-                if att not in ['pitch', 'instrument_id']:
+                if att not in ['pitch', 'instrument_id', 'audioset']:
                     if val not in criteria['filter'][att]:
                         skip = True
                         break
@@ -219,7 +280,14 @@ def extract(path: str, criteria: dict={}, download: bool=False):
         if balance:
             for b_att in b_atts:
                 val = item_atts[b_att]
-                bsize = size / len(attribute_dict[b_att]['values'])
+                if b_att in attribute_dict:
+                    bsize = size / len(attribute_dict[b_att]['values'])
+                elif b_att in criteria.get('filter', {}):
+                    bsize = size / len(criteria['filter'][b_att])
+                
+                else:
+                    bsize = size / len(nsynth_standard_desc['attributes'][b_att]['values'])
+
                 if attribute_dict[b_att]['count'][str(val)] >= bsize:
                     skip = True
             if skip:
@@ -244,11 +312,23 @@ def extract(path: str, criteria: dict={}, download: bool=False):
                 # --> counts and value tracking makes no sense
                 elif all(isinstance(n, float) for n in val):
                     pass
+            
+            elif att == 'audioset':
+                
+                data_val = []
+                for v in attribute_dict[att]['values']:
+                    as_val = item_atts[att][v]
+                    data_val.append(as_val)
+                    attribute_dict[att]['var'][v] += \
+                        (nsynth_standard_desc['attributes'][att][v]['mean'] - as_val)**2
+
             else:
                 idx = attribute_dict[att]['values'].index(val)
                 attribute_dict[att]['count'][str(val)] += 1
-                data_val = idx
-            data_item.append(data_val)
+                data_val = [idx]
+                # data_val = idx
+            data_item += data_val
+            # data_item.append(data_val)
         if skip: continue
         data.append(item_path)
         metadata.append(data_item)
@@ -256,11 +336,16 @@ def extract(path: str, criteria: dict={}, download: bool=False):
         if len(data) >= size:
             pbar.close()
             break
-        
+
+    if 'audioset' in attribute_dict:
+        for k in attribute_dict['audioset']['values']:
+            attribute_dict['audioset']['var'][k] /= size
+    
     extraction_dict['attributes'] = attribute_dict
     extraction_dict['output_file'] = data_file
     extraction_dict['size'] = len(data)
     extraction_dict['hash'] = extraction_hash
+
     with open(data_file, 'wb') as fp:
         pickle.dump((data, metadata, extraction_dict), fp)
     save_json(extraction_dict, desc_file)
