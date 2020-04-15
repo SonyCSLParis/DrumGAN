@@ -53,11 +53,18 @@ class AudioPairsLoader(AudioDataLoader, ABC):
         import multiprocessing
         p = multiprocessing.Pool(multiprocessing.cpu_count())
         self.data_x, self.data_y = list(zip(*self.data))
-        self.data_x = list(p.map(self.preprocessing,
-            tqdm(self.data_x, desc='preprocessing-x')))
-        
-        self.data_y = list(p.map(self.preprocessing,
-            tqdm(self.data_y, desc='preprocessing-y')))
+        try:
+            self.data_x = list(p.map(self.preprocessing,
+                tqdm(self.data_x, desc='preprocessing-x')))
+        except (MemoryError, OSError) as e:
+            self.data_x = list(map(self.preprocessing,
+                tqdm(self.data_x, desc='preprocessing-x')))
+        try:
+            self.data_y = list(p.map(self.preprocessing,
+                tqdm(self.data_y, desc='preprocessing-y')))
+        except (MemoryError, OSError) as e:
+            self.data_y = list(map(self.preprocessing,
+                tqdm(self.data_y, desc='preprocessing-y')))
         p.close()
         p.join()
         print("Data preprocessing done")
