@@ -463,7 +463,7 @@ class ResizeWrapper():
             f"Resize dimensions mismatch, Target shape {self.size} \
                 != image shape {image.shape}"
         if type(image) is not np.ndarray:
-            image = image.numpy()
+            image = image.cpu().numpy()
         out = interpolate(torch.from_numpy(image).unsqueeze(0), size=self.size).squeeze(0)
         return out
 

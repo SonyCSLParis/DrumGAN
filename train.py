@@ -1,23 +1,24 @@
-import os
 import sys
-import importlib
 import argparse
-import time
-import json
-import torch
-import torch.backends.cudnn as cudnn
+import sys
+from datetime import datetime
 
-from utils.utils import getLastCheckPoint, GPU_is_available, \
-    checkexists_mkdir, mkdir_in_path
-from utils.utils import *
-from utils.config import update_parser_with_config, get_config_override_from_parser
-from gans import ProgressiveGANTrainer
-from data.preprocessing import AudioProcessor
+from torch.backends import cudnn
 
 from data.loaders import get_data_loader
+from data.preprocessing import AudioProcessor
+from gans import ProgressiveGANTrainer
+from utils.config import update_parser_with_config, \
+    get_config_override_from_parser
+from utils.utils import *
+
+# get rid of the librosa warning when loading mp3s
+if not sys.warnoptions:
+    import warnings
+    warnings.simplefilter("ignore") # Change the filter in this process
+    os.environ["PYTHONWARNINGS"] = "ignore" # Also affect subprocesses
 
 from datetime import datetime
-import ipdb
 from visualization import getVisualizer
 
 
@@ -61,7 +62,14 @@ if __name__ == "__main__":
     parser.add_argument('--no-visdom', action='store_true', dest='no_visdom',
                         help='Deactivate visdom visualization')
 
-    # torch.autograd.set_detect_anomaly(True)
+    import resource
+
+    rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
+
+    #torch.autograd.set_detect_anomaly(True)
+    cudnn.benchmark = True
+
     # Parse command line args
     args, unknown = parser.parse_known_args()
     # Initialize random seed

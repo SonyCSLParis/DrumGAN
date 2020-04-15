@@ -95,7 +95,7 @@ def rainbowgram_matplot(audio, title, figsize=(6.4, 4.8)):
 
 def plotlyHeatmap(data, title, subplot_titles=['mag', 'phase']):
     if type(data) == torch.Tensor:
-        data = data.numpy()
+        data = data.cpu().numpy()
     if data.shape[0] == 2:
         mag_spec, ph_spec = data[0], data[1]
     else:

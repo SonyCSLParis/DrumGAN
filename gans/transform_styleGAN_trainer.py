@@ -1,6 +1,6 @@
-import os
 
-import ipdb
+
+import matplotlib.pyplot as plt
 
 from .progressive_gan_trainer import ProgressiveGANTrainer
 
@@ -9,7 +9,7 @@ from tqdm import tqdm
 from .spgan_config import _C
 import numpy as np
 import torch
-from utils.utils import mkdir_in_path
+from utils.utils import mkdir_in_path, saveAudioBatch
 
 
 class TStyleGANTrainer(ProgressiveGANTrainer):
@@ -59,6 +59,9 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
     def init_reference_eval_vectors(self, batch_size=50):
 
         self.true_ref, self.true_pair = self.loader.get_validation_set(batch_size)
+        if self.useGPU:
+            self.true_ref = self.true_ref.cuda()
+            self.true_pair = self.true_pair.cuda()
 
         batch_size = min(batch_size, len(self.true_pair))
         self.ref_z, _ = self.model.buildNoiseData(batch_size)
@@ -88,13 +91,17 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
         with tqdm(dbLoader, desc='Iter-loop') as t:
 
             for x, y in t:
+                # run evaluation/tests
+                if self.iter % self.eval_i == 0: # and self.iter != 0:
+                    self.run_tests_evaluation_and_visualization(scale)
+
                 # Additionnal updates inside a scale
                 # x = self.inScaleUpdate(self.iter, scale, x)
                 # Optimize parameters
                 allLosses = self.model.optimizeParameters(x, y, iter=self.iter)
                 # Update and print losses
                 self.updateRunningLosses(allLosses)
-                state_msg = f'Iter: {self.iter}; scale: {scale} '
+                state_msg = f'Iter: {self.iter} '
                 for key, val in allLosses.items():
                     state_msg += f'{key}: {val:.2f}; '
                 t.set_description(state_msg)
@@ -105,10 +112,6 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                     self.updateLossProfile(self.iter)
                     self.resetRunningLosses()
                     self.publish_loss()
-
-                # run evaluation/tests
-                if self.iter % self.eval_i == 0 and self.iter != 0:
-                    self.run_tests_evaluation_and_visualization(scale)
 
                 # Save checkpoint
                 if self.iter % (self.saveIter - 1) == 0 and self.iter != 0:
@@ -127,21 +130,23 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
     def test_GAN(self):
         # sample fake data
 
-        fake = self.model.test_G(z=self.ref_z, x=self.true_pair.float(), getAvG=False, toCPU=not self.useGPU)
-        fake_avg = self.model.test_G(z=self.ref_z, x=self.true_pair.float(), getAvG=True, toCPU=not self.useGPU)
+        fake = self.model.test_G(z=self.ref_z, x=self.true_pair.float(),
+                                 getAvG=False, toCPU=not self.useGPU)
+        fake_avg = self.model.test_G(z=self.ref_z, x=self.true_pair.float(),
+                                     getAvG=True, toCPU=not self.useGPU)
         
         # predict labels for fake data
-        input_D = torch.cat([self.true_ref, fake], dim=1)
+        input_D = torch.cat([self.true_ref, fake, fake - self.true_ref], dim=1)
         D_fake, fake_emb = self.model.test_D(
             input_D, output_device='cpu', get_labels=False)
 
-        input_D2 = torch.cat([self.true_ref, fake_avg], dim=1)
+        input_D2 = torch.cat([self.true_ref, fake_avg, fake_avg - self.true_ref], dim=1)
         D_fake_avg, fake_avg_emb = self.model.test_D(
             input_D2, output_device='cpu', get_labels=False)
         
         # predict labels for true data
         # true, _ = self.loader.get_validation_set(len(self.ref_z), process=True)
-        input_true = torch.cat([self.true_ref, self.true_pair.float()], dim=1)
+        input_true = torch.cat([self.true_ref, self.true_pair.float(), self.true_pair.float() - self.true_ref], dim=1)
         D_true, true_emb = self.model.test_D(
             input_true, output_device='cpu', get_labels=False)
 
@@ -150,39 +155,122 @@ class TStyleGANTrainer(ProgressiveGANTrainer):
                D_fake_avg, fake_avg_emb.detach(), \
                self.true_ref, fake.detach(), fake_avg.detach()
 
+    def getDefaultIF(self, batch_size, win_size, hop_size):
+        defaults = [(f+1) * hop_size / win_size % 1 for f in range(win_size // 2)]
+        defaults = torch.Tensor(defaults)
+        defaults[defaults > .5] = defaults[defaults > .5] - 1
+        defaults *= 2 * np.pi
+        if torch.cuda.is_available():
+            defaults = defaults.cuda()
+        defaults = defaults[None, None, :, None]
+        return defaults.repeat((batch_size, 1, 1, 1))
+
+
+    def run_default_if_test(self):
+        scale_output_dir = mkdir_in_path(self.output_dir, f'scale_20')
+        iter_output_dir = mkdir_in_path(scale_output_dir, f'iter_{self.iter}')
+        output_dir = mkdir_in_path(iter_output_dir, 'generation')
+        win_size = 16384
+        hop_size = 2048
+        batch_size = self.true_pair.shape[0]
+        default_map_IF = self.getDefaultIF(batch_size, win_size,
+                                           hop_size)
+        default_map_IF[:, :, :, 0] = torch.Tensor(np.random.random(
+            (batch_size, 1, default_map_IF.shape[3])) * 2 * np.pi - np.pi)
+        # default_map_IF += torch.Tensor(
+        #     np.random.normal(0, 0.1, default_map_IF.shape)).cuda()
+        self.true_pair[:, 1:2, :, :] = default_map_IF
+        batch_signal = self.loader.postprocess(self.true_pair)
+
+        plt.clf()
+        plt.plot(batch_signal[0][:])
+        plt.show()
+        plt.clf()
+        plt.plot(batch_signal[0][:2048])
+        plt.show()
+
+        saveAudioBatch(
+            self.loader.postprocess(self.true_ref),
+            path=output_dir,
+            basename=f'true_audio',
+            overwrite=True)
+
+        saveAudioBatch(
+            self.loader.postprocess(self.true_pair),
+            path=output_dir,
+            basename=f'processed_audio',
+            overwrite=True)
+
+
     def run_tests_evaluation_and_visualization(self, scale):
         scale_output_dir = mkdir_in_path(self.output_dir, f'scale_{scale}')
         iter_output_dir  = mkdir_in_path(scale_output_dir, f'iter_{self.iter}')
-        from utils.utils import saveAudioBatch
 
-        _, true_emb, \
-        _, fake_emb, \
-        _, fake_avg_emb, \
-        true, fake, fake_avg = self.test_GAN()
+        with torch.no_grad():
+            _, true_emb, \
+            _, fake_emb, \
+            _, fake_avg_emb, \
+            true, fake, fake_avg = self.test_GAN()
 
-        if self.save_gen:
-            output_dir = mkdir_in_path(iter_output_dir, 'generation')
-            saveAudioBatch(
-                self.loader.postprocess(fake), 
-                path=output_dir, 
-                basename=f'gen_audio_scale_{scale}')
+            if self.save_gen:
+                output_dir = mkdir_in_path(iter_output_dir, 'generation')
+                if False:
+                    win_size = 1024
+                    hop_size = 256
+                    batch_size = fake.shape[0]
+                    default_map_IF = self.getDefaultIF(batch_size, win_size, hop_size)
+                    default_map_IF[:, :, :, 0] = torch.Tensor(np.random.random((batch_size, 1, default_map_IF.shape[3])) * 2*np.pi - np.pi)
+                    default_map_IF += torch.Tensor(np.random.normal(0, 0.1, default_map_IF.shape)).cuda()
+                    fake[:, 0, :, :] = -np.inf
+                    fake[0, 0, 0, :] = 5
+                    fake[0, 0, 10, :] = 5
+                    fake[1, 0, 17, :] = 5
+                    fake[1, 0, 251, :] = 5
+                    fake[1, 0, 7, :] = 5
+                    fake[:, 1:2, :, :] = default_map_IF
+                    #true[:, 1:2, :, :] = default_map_IF
+                    # self.true_pair[:, 0, 3:, :] = -np.inf
+                    # self.true_pair[:, 0, :2, :] = -np.inf
+                    self.true_pair[:, 1:2, :, :] = default_map_IF
+                    print(fake[0, 0, 100, :10])
+                    print(fake[0, 1, 100, :10])
+                    batch_signal = self.loader.postprocess(self.true_pair)
 
-            saveAudioBatch(
-                self.loader.postprocess(true), 
-                path=output_dir, 
-                basename=f'true_audio_scale_{scale}')
+                    plt.clf()
+                    plt.plot(batch_signal[0][:])
+                    plt.show()
+                    plt.clf()
+                    plt.plot(batch_signal[0][:2048])
+                    plt.show()
+                saveAudioBatch(
+                    self.loader.postprocess(fake),
+                    path=output_dir,
+                    basename=f'gen_audio_scale_{scale}',
+                    overwrite=True)
 
-        if self.vis_manager != None:
-            output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
-            self.vis_manager.set_postprocessing(
-                self.loader.get_postprocessor())
-            self.vis_manager.publish(
-                true[:5], 
-                labels=[], 
-                name=f'real_scale_{scale}', 
-                output_dir=output_dir)
-            self.vis_manager.publish(
-                fake[:5], 
-                labels=[], 
-                name=f'gen_scale_{scale}', 
-                output_dir=output_dir)
+                saveAudioBatch(
+                    self.loader.postprocess(true),
+                    path=output_dir,
+                    basename=f'true_audio_scale_{scale}',
+                    overwrite=True)
+
+                saveAudioBatch(
+                    self.loader.postprocess(self.true_pair),
+                    path=output_dir,
+                    basename=f'pair_audio_scale_{scale}',
+                    overwrite=True)
+
+            # if self.vis_manager != None:
+            #     output_dir = mkdir_in_path(iter_output_dir, 'audio_plots')
+            #     self.vis_manager.set_postprocessing(
+            #         self.loader.get_postprocessor())
+            #     self.vis_manager.publish(
+            #         true[:5],
+            #         labels=[],
+            #         name=f'real_scale_{scale}',
+            #         output_dir=output_dir)
+            #     self.vis_manager.publish(
+            #         fake[:5],
+            #         labels=[],
+            #         name=f'gen_scale_{scale}',
+            #         output_dir=output_dir)

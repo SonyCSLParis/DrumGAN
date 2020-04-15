@@ -1,19 +1,32 @@
+
+import librosa
 import librosa.display as display
 import matplotlib.pyplot as plt
 import os
+import numpy as np
 
 import torch.nn.functional as F
 
 
-def save_spectrogram(out_dir=".", fn="spect.png", spect=None):
-    plt.clf()
-    display.specshow(spect, y_axis='linear')
-    plt.colorbar(format='%+2.0f dB')
-    plt.savefig(os.path.join(out_dir, fn))
-    #plt.clf()
-    #plt.hist(spect.flatten(), 500)
-    #plt.savefig(os.path.join(out_dir, "hist_"+fn))
+def librosaSpec(x):
+    return librosa.magphase(x)
 
+def save_spectrogram(out_dir=".", fn="spect.png", spect_compl=None):
+    plt.clf()
+
+    spect = spect_compl[0] + 1j * spect_compl[1]
+    mag, ph = librosa.magphase(spect)
+
+    display.specshow(np.log(mag), y_axis='linear', sr=16000, hop_length=256,
+                     fmax=7900, fmin=10)
+    plt.colorbar(format='%+2.0f dB')
+    plt.savefig(os.path.join(out_dir, "mag_" + fn))
+
+    plt.clf()
+    display.specshow(np.angle(ph), y_axis='linear', sr=16000, hop_length=256,
+                     fmax=7900, fmin=10)
+    plt.colorbar(format='%+2.0f dB')
+    plt.savefig(os.path.join(out_dir, "ph_" + fn))
 
 def scale_interp(x, size=0, mode='nearest'):
     # return F.adaptive_avg_pool2d(x, output_size=size)

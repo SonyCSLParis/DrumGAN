@@ -24,7 +24,7 @@ import resource
 
 __VERSION__ = "0.0.0"
 MAX_N_FILES_IN_FOLDER = 10000
-criteria_keys = ['format', 'bitrate', 'parameters', 'size']
+criteria_keys = ['format1', 'format2', 'bitrate', 'parameters', 'size']
 criteria_keys.sort()
 
 def check_mp3_info(mp3_path):
@@ -40,12 +40,20 @@ def get_mp3_pydub(criteria, path_mp3, file):
 
 def get_mp3(criteria, path_mp3, file):
     filename = get_filename(file)
-    out_file = os.path.join(path_mp3, filename + '.mp3')
+    out_file = os.path.join(path_mp3, filename + f".{criteria.get('format2', 'mp3')}")
     if not os.path.exists(out_file):
         subprocess.call(['ffmpeg', '-hide_banner', '-loglevel', 'panic', 
-                        '-i', file, 'b:a', criteria.get('bitrate', '128k'), 
+                        '-i', file, '-b:a', criteria.get('bitrate', '128k'), 
                         out_file])
+    else:
+        print(f"File {out_file} already exits")
     return (file, out_file)
+
+def get_extractor_method(_format):
+    return {
+        '.mp3': get_mp3,
+        'mp3.wav': get_mp3
+    }[_format]
 
 
 def extract(path_wav: str,
@@ -59,6 +67,9 @@ def extract(path_wav: str,
     if not os.path.exists(path_wav):
         print('NSynth folder not found')
         sys.exit(1)
+    format1 = criteria.get('format1', '.wav')
+    format2 = criteria.get('format2', '.mp3')
+
     extraction_hash = get_hash_dict(criteria)
     path_wav = path_wav.rstrip('/')
     root_dir = mkdir_in_path(os.path.dirname(path_wav), f'{dbname}_extractions')
@@ -75,11 +86,19 @@ def extract(path_wav: str,
 
     if not os.path.exists(path_mp3) or path_mp3 == '':
         path_wav.rstrip('/')
-        path_mp3 = mkdir_in_path(os.path.dirname(path_wav), 'mp3')
+        path_mp3 = mkdir_in_path(os.path.dirname(path_wav), format2)
 
     description = get_base_db(dbname, __VERSION__)
 
-    wav_files = list_files_abs_path(path_wav, '.wav')
+    wav_files = list_files_abs_path(path_wav, format1)
+    mp3_files = list_files_abs_path(path_mp3, format2)
+
+    if len(mp3_files) > 0:
+        wav_files = list(map(lambda x: \
+            os.path.join(path_wav, get_filename(x.strip(format2)) + format1), mp3_files))
+        wav_files = list(filter(lambda x: os.path.exists(x), wav_files))
+
+        
     if len(wav_files) == 0:
         print('No wav files found!')
         sys.exit(1)
@@ -88,7 +107,9 @@ def extract(path_wav: str,
         size = criteria.pop('size')
     else:
         size = len(wav_files)
-    
+
+    extractor = get_extractor_method(format2)
+
     n_folders = 0
     data = []
     shuffle(wav_files)
@@ -96,10 +117,9 @@ def extract(path_wav: str,
     rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
     resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
     p = multiprocessing.Pool(multiprocessing.cpu_count())
-    data = list(p.map(partial(get_mp3, criteria, path_mp3), pbar))
+    data = list(p.map(partial(extractor, criteria, path_mp3), pbar))
     p.close()
     p.join()
-
     description['attributes'] = criteria
     description['output_file'] = data_file
     description['size'] = len(data)

@@ -59,6 +59,7 @@ def get_standard_format(path: str, dbname='csl-drums'):
         if any(f.endswith('.wav') for f in files):
             inst_att = get_filename(os.path.dirname(root))
             files = list(filter(lambda x: x.endswith('.wav'), files))
+            files = list(filter(lambda x: not x.startswith('._'), files))
             # filter files that have _analysis.json
             files = list(filter(lambda x: os.path.exists(os.path.join(root, get_filename(x) + '_analysis.json')), files))
             attributes['instrument']['count'][inst_att] += len(files)
@@ -130,7 +131,6 @@ def get_standard_format(path: str, dbname='csl-drums'):
                         out_item['attributes'][att] = inst_att
                 i+=1
                 save_json(out_item, output_file)
-
     for ac in audio_commons_keys:
         attributes['audio-commons']['mean'][ac] /= i
     description['attributes'] = attributes

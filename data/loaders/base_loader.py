@@ -66,10 +66,12 @@ class DataLoader(ABC, data.Dataset):
             print(f"Dataset {self.pt_file_path} exists. Reloading...")
             self.load_from_pt_file(self.pt_file_path)
         else:
+            import joblib
             print(f"Saving dataset in {self.pt_file_path}")
             self.init_dataset()
-            torch.save(self, self.pt_file_path, pickle_module=dill)
-            print(f"Dataset saved.")
+            joblib.dump(self, self.pt_file_path)
+            # torch.save(self, self.pt_file_path, pickle_module=dill)
+            #print(f"Dataset saved.")
 
     def __hash__(self):
         return hex(int(self.preprocessing.__hash__(), 16) + \
@@ -97,7 +99,9 @@ class DataLoader(ABC, data.Dataset):
         self.train_val_split()
 
     def load_from_pt_file(self, path):
-        new_obj = torch.load(path)
+        import joblib
+        new_obj = joblib.load(path)
+        # new_obj = torch.load(path)
         self.__dict__.update(new_obj.__dict__)
 
     def get_attribute_dict(self):

@@ -211,7 +211,7 @@ def extract(path: str, criteria: dict={}):
     extraction_dict['output_file'] = data_file
     extraction_dict['size'] = len(data)
     extraction_dict['hash'] = extraction_hash
-    ipdb.set_trace()
+
     with open(data_file, 'wb') as fp:
         pickle.dump((data, metadata, extraction_dict), fp)
     save_json(extraction_dict, desc_file)
