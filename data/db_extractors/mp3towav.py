@@ -51,7 +51,7 @@ def get_mp3(criteria, path_mp3, file):
 
 def get_extractor_method(_format):
     return {
-        'mp3': get_mp3,
+        '.mp3': get_mp3,
         'mp3.wav': get_mp3
     }[_format]
 
