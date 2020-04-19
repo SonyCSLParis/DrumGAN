@@ -11,7 +11,7 @@ from tqdm import trange, tqdm
 
 from .base_db import get_base_db, get_hash_dict
 
-from pydub import AudioSegment
+# from pydub import AudioSegment
 # from mutagen.mp3 import MP3
 from functools import partial
 
