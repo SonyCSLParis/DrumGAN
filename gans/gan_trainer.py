@@ -386,7 +386,9 @@ class GANTrainer():
                 allLosses = self.model.optimizeParameters(
                     inputs_real, 
                     inputLabels=labels,
-                    fakeLabels=self.loader.get_random_labels(inputs_real.size(0)))
+                    fakeLabels=None)
+                    # fakeLabels=self.loader.get_random_labels(inputs_real.size(0)))
+                
                 # Update and print losses
                 self.updateRunningLosses(allLosses)
                 state_msg = f'Iter: {self.iter}; scale: {scale} '
