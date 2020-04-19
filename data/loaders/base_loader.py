@@ -143,7 +143,7 @@ class DataLoader(ABC, data.Dataset):
         signal.signal(signal.SIGALRM, timeout)
 
         p = multiprocessing.Pool(multiprocessing.cpu_count())
-        signal.alarm(20)
+        # signal.alarm(20)
         try:
             self.data = list(p.map(self.preprocessing,
                             tqdm(self.data, desc='preprocessing-loop')))
@@ -153,7 +153,7 @@ class DataLoader(ABC, data.Dataset):
             print("Running non-parallel processing")
             self.data = list(map(self.preprocessing,
                             tqdm(self.data, desc='preprocessing-loop')))
-        signal.alarm(0)
+        # signal.alarm(0)
         print("Data preprocessing done")
 
     @abstractmethod
@@ -223,7 +223,10 @@ class DataLoader(ABC, data.Dataset):
         val_label_batch = torch.Tensor(self.val_labels[:batch_size])
         if process:
             val_batch = \
-                torch.stack([self.getitem_processing(v) for v in val_batch])
+                torch.stack([self.getitem_processing(v) for v in val_batch]).float()
+        else:
+            val_batch = \
+                torch.stack([torch.FloatTensor(v) for v in val_batch]).float()
         return val_batch, val_label_batch
 
     def postprocess(self, data_batch):
