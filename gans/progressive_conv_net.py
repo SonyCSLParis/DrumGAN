@@ -351,7 +351,7 @@ class DNet(nn.Module):
         if self.miniBatchNormalization:
             dimEntryScale0 += 1
 
-        self.fromRGBLayers.append(EqualizedConv2d(self.dimInput + 2, self.depthScale0, 1,
+        self.fromRGBLayers.append(EqualizedConv2d(self.dimInput, self.depthScale0, 1,
                                                   equalized=self.equalizedlR,
                                                   initBiasToZero=self.initBiasToZero))
         self.groupScaleZero.append(EqualizedConv2d(dimEntryScale0, self.depthScale0,
@@ -385,7 +385,7 @@ class DNet(nn.Module):
                                                     equalized=self.equalizedlR,
                                                     initBiasToZero=self.initBiasToZero))
 
-        self.fromRGBLayers.append(EqualizedConv2d(self.dimInput + 2,
+        self.fromRGBLayers.append(EqualizedConv2d(self.dimInput,
                                                   depthNewScale,
                                                   1,
                                                   equalized=self.equalizedlR,

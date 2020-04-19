@@ -505,7 +505,7 @@ class StyledConv2DBlock(nn.Module):
             self.noise1 = DummyBlock()
 
         self.adain1 = AdaptiveInstanceNorm2D(out_channel, style_dim)
-        self.lrelu1 = nn.SELU() #nn.LeakyReLU(0.2)
+        self.lrelu1 = nn.LeakyReLU(0.2)
 
         self.conv2 = EqualizedConv2d(out_channel, 
                                      out_channel, 
