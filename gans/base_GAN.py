@@ -172,7 +172,7 @@ class BaseGAN():
         else:
             return self.netG(input).detach()
 
-    def test_D(self, input, get_labels=True, get_embeddings=True, output_device=torch.device('cuda')):
+    def test_D(self, input, get_labels=True, get_embeddings=True, output_device=torch.device('cpu')):
         input = input.to(self.device)
         pred, embedding = self.netD(input, True)
 
