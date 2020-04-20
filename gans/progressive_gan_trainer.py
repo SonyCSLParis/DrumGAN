@@ -186,9 +186,8 @@ class ProgressiveGANTrainer(GANTrainer):
                 alpha = self.modelConfig.alphaJumpVals[scale][self.indexJumpAlpha]
                 self.model.updateAlpha(alpha)
                 self.indexJumpAlpha += 1
-
         if self.model.config.alpha > 0:
-            low_res_real = F.adaptive_avg_pool2d(input_real, output_size=self.outputShapes[scale])
+            low_res_real = F.adaptive_avg_pool2d(input_real, output_size=self.outputShapes[scale - 1])
             low_res_real = F.interpolate(low_res_real, size=input_real.size()[-2:], mode='nearest')
 
             alpha = self.model.config.alpha
