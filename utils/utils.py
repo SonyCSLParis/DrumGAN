@@ -200,9 +200,14 @@ def getLastCheckPoint(dir, name, scale=None, iter=None):
     pathTmpData: path to the temporary configuration (.json)
     """
     trainConfig = os.path.join(dir, name + "_train_config.json")
+    if scale == -1:
+        scale = None
+    if iter == -1:
+        iter = None
 
     if not os.path.isfile(trainConfig):
         print("Checkpoint not found!")
+        print(f"Training config file {trainConfig} does not exits!")
         return None
 
     listFiles = [f for f in os.listdir(dir) if (
@@ -221,6 +226,7 @@ def getLastCheckPoint(dir, name, scale=None, iter=None):
 
     if len(listFiles) == 0:
         print("Checkpoint not found!")
+        print(f"No files found for scale {scale} and iter {iter}")
         return None
 
     pathModel = os.path.join(dir, listFiles[0])
@@ -228,8 +234,9 @@ def getLastCheckPoint(dir, name, scale=None, iter=None):
 
     if not os.path.isfile(pathTmpData):
         print("Checkpoint not found!")
+        print(f"Tmp configuration {pathTmpData} not found!")
         return None
-
+    print(f"Loading model {name}, at iter {iter}; scale {scale}")
     return trainConfig, pathModel, pathTmpData
 
 
