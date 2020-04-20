@@ -11,6 +11,7 @@ from gans import ProgressiveGANTrainer
 from utils.config import update_parser_with_config, \
     get_config_override_from_parser
 from utils.utils import *
+import ipdb
 
 # get rid of the librosa warning when loading mp3s
 if not sys.warnoptions:
@@ -50,9 +51,10 @@ if __name__ == "__main__":
                         which a checkpoint should be saved. In the case of a\
                         evaluation test, iteration to work on.",
                         type=int, dest="loss_i", default=5000)
-    parser.add_argument('--scale', dest="scale", default=0, 
+    parser.add_argument('--scale', dest="scale", default=-1, type=int,
                         help="If checkpoints found, start at scale")
-    parser.add_argument('--iter', help="If chekpoints found, iteration at which to continue")
+    parser.add_argument('--iter', dest='iter', default=-1, type=int,
+                        help="If chekpoints found, iteration at which to continue")
     parser.add_argument('-v', '--partitionValue', help="Partition's value",
                         type=str, dest="partition_value")
     parser.add_argument('--seed', dest='seed', action='store_true', help="Partition's value")
@@ -154,7 +156,10 @@ if __name__ == "__main__":
 
     # load checkpoint
     print("Search and load last checkpoint")
-    checkpoint_state = getLastCheckPoint(checkpoint_dir, exp_name)
+    checkpoint_state = getLastCheckPoint(checkpoint_dir, 
+                                         exp_name, 
+                                         iter=args.iter, 
+                                         scale=args.scale)
     # If a checkpoint is found, load it
     if not args.restart and checkpoint_state is not None:
         train_config, model_path, tmp_data_path = checkpoint_state
