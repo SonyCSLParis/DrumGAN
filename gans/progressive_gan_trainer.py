@@ -131,10 +131,10 @@ class ProgressiveGANTrainer(GANTrainer):
         self.modelConfig.iterAlphaJump = self.modelConfig.iterAlphaJump[:n_scales]
         self.modelConfig.alphaJumpVals = self.modelConfig.alphaJumpVals[:n_scales]
 
-        self.modelConfig.size_scales = [4]
-        for scale in range(1, n_scales):
-            self.modelConfig.size_scales.append(
-                self.modelConfig.size_scales[-1] * 2)
+        # self.modelConfig.size_scales = [4]
+        # for scale in range(1, n_scales):
+        #     self.modelConfig.size_scales.append(
+        #         self.modelConfig.size_scales[-1] * 2)
 
         self.modelConfig.n_scales = n_scales
 
