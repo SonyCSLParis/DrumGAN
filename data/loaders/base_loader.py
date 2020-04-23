@@ -29,8 +29,8 @@ def timeout(signum, frame):
 class DataLoader(ABC, data.Dataset):
     def __init__(self,
                  data_path,
-                 output_path,
                  criteria,
+                 output_path=None,
                  getitem_processing=None,
                  dbname="default",
                  overwrite=False,
@@ -54,6 +54,7 @@ class DataLoader(ABC, data.Dataset):
         # data/metadata/header attributes
         self.load_data()
         self.dbname = f'{dbname}_{self.__hash__()}'
+        output_path = mkdir_in_path(self.data_path, 'processed')
         self.output_path = mkdir_in_path(os.path.expanduser(output_path), dbname)
 
         assert os.path.exists(self.data_path), \
