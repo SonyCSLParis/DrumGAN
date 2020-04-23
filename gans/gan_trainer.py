@@ -181,7 +181,14 @@ class GANTrainer():
         get_config_from_dict(self.modelConfig, config, self.getDefaultConfig())
 
 
-    def load_saved_training(self, pathModel, pathTrainConfig, pathTmpConfig, loadGOnly=False, loadDOnly=False, finetune=False):
+    def load_saved_training(self,
+                            pathModel,
+                            pathTrainConfig,
+                            pathTmpConfig,
+                            loadGOnly=False,
+                            loadDOnly=False,
+                            loadConfig=True,
+                            finetune=False):
         r"""
         Load a given checkpoint.
 
@@ -247,6 +254,7 @@ class GANTrainer():
         self.model.load(pathModel,
                         loadG=not loadDOnly,
                         loadD=not loadGOnly,
+                        loadConfig=loadConfig,
                         finetuning=finetune)
 
     def getDefaultConfig(self):
