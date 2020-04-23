@@ -21,9 +21,9 @@ class BaseGAN():
     """
     def __init__(self,
                  dimLatentVector,
-                 dimOutput=3,
+                 dimOutput,
+                 learning_rate,
                  useGPU=True,
-                 baseLearningRate=0.001,
                  lossMode='WGANGP',
                  ac_gan=False,
                  attribKeysOrder=None,
@@ -102,7 +102,7 @@ class BaseGAN():
         self.config.dimOutput = dimOutput
 
         # Actual learning rate
-        self.config.learningRate = baseLearningRate
+        self.config.learning_rate = learning_rate
 
         # Input formatLayer type
         self.config.formatLayerType = formatLayerType
@@ -523,8 +523,8 @@ class BaseGAN():
         self.load_state_dict(in_state,
                              loadG=loadG,
                              loadD=loadD,
-                             loadConfig=True,
-                             finetuning=False)
+                             loadConfig=loadConfig,
+                             finetuning=finetuning)
 
     def load_state_dict(self,
                         in_state,
