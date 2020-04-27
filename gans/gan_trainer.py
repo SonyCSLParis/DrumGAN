@@ -439,7 +439,7 @@ class GANTrainer():
 
         batch_size = min(batch_size, len(self.ref_labels))
         if self.modelConfig.ac_gan:
-            self.ref_z, _ = self.model.buildNoiseData(batch_size, inputLabels=self.ref_labels)
+            self.ref_z, _ = self.model.buildNoiseData(batch_size, inputLabels=self.ref_labels, skipAtts=True)
         else:
             self.ref_z, _ = self.model.buildNoiseData(batch_size)
 
