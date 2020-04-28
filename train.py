@@ -134,15 +134,6 @@ if __name__ == "__main__":
     model_config['output_shape'] = audio_processor.get_output_shape()
     config["model_config"] = model_config
 
-    # visualization
-    vis_manager = \
-    getVisualizer(transform_config['transform'])(
-        output_path=checkpoint_dir,
-        env=exp_name,
-        sampleRate=transform_config.get('sample_rate', 16000),
-        no_visdom=args.no_visdom)
-
-
     # load checkpoint
     print("Search and load last checkpoint")
     checkpoint_state = getLastCheckPoint(checkpoint_dir, 
@@ -155,6 +146,14 @@ if __name__ == "__main__":
         exp_name = exp_name + '_' + args.name
         checkpoint_dir = mkdir_in_path(config['output_path'], exp_name)
         config["name"] = exp_name
+
+    # visualization
+    vis_manager = \
+    getVisualizer(transform_config['transform'])(
+        output_path=checkpoint_dir,
+        env=exp_name,
+        sampleRate=transform_config.get('sample_rate', 16000),
+        no_visdom=args.no_visdom)
 
     GANTrainer = trainerModule(
         model_name=exp_name,
