@@ -17,7 +17,7 @@ class ACGANCriterion:
     def __init__(self,
                  attribKeysOrder,
                  soft_labels=False,
-                 skipAttDfake=None):
+                 skipAttDfake=[]):
         r"""
         Args:
 
