@@ -121,11 +121,11 @@ if __name__ == "__main__":
     
     # configure loader
     loader_config = config['loader_config']
-    dbname = loader_config.pop('dbname', args.dataset)
+    dbname = loader_config.get('dbname', args.dataset)
 
     loader_module = get_data_loader(dbname)
 
-    loader = loader_module(dbname=dbname + '_' + transform_config['transform'],
+    loader = loader_module(name=dbname + '_' + transform_config['transform'],
                            output_path=checkpoint_dir, 
                            preprocessing=audio_processor,
                            **loader_config)
