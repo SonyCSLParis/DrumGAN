@@ -399,6 +399,9 @@ def GPU_is_available():
     if not cuda_available: print("Cuda not available. Running on CPU")
     return cuda_available
 
+def get_device():
+    return torch.device('cuda' if GPU_is_available() else 'cpu')
+
 
 def load_model_checkp(dir, iteration=None, scale=None, **kwargs):
     # Loading the modelPackage
