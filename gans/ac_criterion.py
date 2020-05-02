@@ -173,8 +173,13 @@ class ACGANCriterion:
         shift = 0
         shift2 = 0
         for i in range(self.nAttrib):
-            if skipAtts and self.keyOrder[i] in self.skipAttDfake: continue
-
+            if skipAtts and self.keyOrder[i] in self.skipAttDfake: 
+                if self.att_loss[i] in ['xentropy', 'sxentropy']:
+                    shift2 += 1
+                elif self.att_loss[i] in ['mse', 'bce']:
+                    shift2 += self.attribSize[i]
+                shift += self.attribSize[i]
+                continue
 
             if self.att_loss[i] in ['xentropy', 'sxentropy']:
                 targetOut[idx, (shift + targetCat[:, shift2]).int().tolist()] = 1
@@ -216,12 +221,12 @@ class ACGANCriterion:
             locInput = outputD[:, shiftInput:(shiftInput+C)]
             if self.att_loss[i] == 'xentropy':
 
-                locPred = F.softmax(locInput, dim=1)
+                locPred = torch.softmax(locInput, dim=1)
                 tmp = torch.argmax(locPred, dim=1, keepdim=True).float()
                 outIdx = torch.cat([outIdx, tmp], dim=1)
             elif self.att_loss[i] in ['bce', 'mse']:
                 locPred = locInput
-                locPred = F.sigmoid(locInput)
+                locPred = torch.sigmoid(locInput)
                 outIdx = torch.cat([outIdx, locPred], dim=1)
             outActivation.append(locPred)
             shiftInput += C
@@ -249,6 +254,7 @@ class ACGANCriterion:
         shiftInput = 0
         shiftTarget = 0
         self.labelWeights = self.labelWeights.to(outputD.device)
+        losses = []
         for i in range(self.nAttrib):
             C = self.attribSize[i]
             if self.keyOrder[i] not in self.skipAttDfake or not skipAtts:
@@ -265,7 +271,7 @@ class ACGANCriterion:
 
                 if self.att_loss[i] == 'mse':
                     locTarget = target[:, shiftTarget:shiftTarget + C]
-                    locInput = F.sigmoid(locInput)
+                    locInput = torch.sigmoid(locInput)
                     locTarget = locTarget.reshape(locInput.size())
                     locLoss = F.mse_loss(locInput, locTarget)
                     shiftTarget += C
@@ -280,7 +286,8 @@ class ACGANCriterion:
                                           weight=self.labelWeights[shiftInput:(shiftInput+C)])
                     shiftTarget += 1
                 loss += locLoss
-
+                losses.append((locLoss, self.keyOrder[i]))
             
             shiftInput += C
+        # return losses
         return loss
