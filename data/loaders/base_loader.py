@@ -30,9 +30,9 @@ class DataLoader(ABC, data.Dataset):
     def __init__(self,
                  data_path,
                  criteria,
+                 name,
                  output_path=None,
                  getitem_processing=None,
-                 dbname="default",
                  overwrite=False,
                  preprocessing=None,
                  postprocessing=None,
@@ -53,9 +53,9 @@ class DataLoader(ABC, data.Dataset):
 
         # data/metadata/header attributes
         self.load_data()
-        self.dbname = f'{dbname}_{self.__hash__()}'
+        self.dbname = f'{name}_{self.__hash__()}'
         output_path = mkdir_in_path(self.data_path, 'processed')
-        self.output_path = mkdir_in_path(os.path.expanduser(output_path), dbname)
+        self.output_path = mkdir_in_path(os.path.expanduser(output_path), name)
 
         assert os.path.exists(self.data_path), \
             f"DataLoader error: path {self.data_path} doesn't exist"
