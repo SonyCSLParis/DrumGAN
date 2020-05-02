@@ -11,7 +11,7 @@ from .audio_transforms import complex_to_lin, lin_to_complex, \
 from nsgt import NSGT, LogScale, LinScale, MelScale, OctScale
 import numpy as np
 import librosa
-
+import mdct
 
 import hashlib
 import ipdb
@@ -27,7 +27,7 @@ class DataProcessor(object):
     """
     # define available audio transforms
     AUDIO_TRANSFORMS = \
-        ["waveform", "stft", "mel", "cqt", "cq_nsgt", "specgrams", "mfcc"]
+        ["waveform", "stft", "mel", "cqt", "cq_nsgt", "specgrams", "mdct", "mfcc"]
 
     def __init__(self,
                  transform="waveform",
@@ -100,6 +100,7 @@ class AudioProcessor(DataProcessor):
             "waveform":  self.build_waveform_pipeline,
             "stft":      self.build_stft_pipeline,
             "specgrams": self.build_specgrams_pipeline,
+            "mdct":      self.build_mdct_pipeline,
             "mel":       self.build_mel_pipeline,
             "cqt":       self.build_cqt_pipeline,
             "cq_nsgt":   self.build_cqt_nsgt_pipeline,
@@ -144,6 +145,21 @@ class AudioProcessor(DataProcessor):
         # self._add_to_torch()
         self.output_shape = (2, self.n_bins, self.n_frames)
 
+    def build_mdct_pipeline(self):
+        self._init_stft_params()
+        self._add_audio_loader()
+        self._add_signal_zeropadding()
+        self._add_fade_out()
+        self._add_norm()
+        self._add_mdct()
+
+        # self._add_to_torch()
+        self.output_shape = (1, self.n_bins, self.n_frames + 1)
+        self.post_pipeline.insert(0, partial(reshape, self.audio_length))
+        self.pre_pipeline.append(partial(reshape, self.output_shape))
+        self._add_to_torch()
+        # self._add_rm_dc()
+        self._add_log_mag()
     def build_mel_pipeline(self):
 
         self._init_stft_params()
@@ -280,6 +296,12 @@ class AudioProcessor(DataProcessor):
     def _add_stft(self):
         self.pre_pipeline.append(partial(stft, self))
         self.post_pipeline.insert(0, partial(istft, self))
+    
+    def _add_mdct(self):
+        self.pre_pipeline.append(partial(
+            mdct.mdct, hopsize=self.hop_size, framelength=self.win_size))
+        self.post_pipeline.insert(0, partial(
+            mdct.imdct, hopsize=self.hop_size, framelength=self.win_size, outlength=self.audio_length))
 
     def _add_mag_phase(self):
         # Add complex to mag/ph transform
