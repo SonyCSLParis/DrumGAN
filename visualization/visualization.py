@@ -35,6 +35,7 @@ def getVisualizer(data_type):
         'waveform': WaveformVisualizer,
         'stft':  STFTVisualizer,
         'specgrams':  SpecgramsVisualizer,
+        'mdct':  MDCTVisualizer,
         'mel':  MelVisualizer,
         'mfcc':  MFCCVisualizer,
         'cqt': CQTVisualizer,
@@ -548,6 +549,50 @@ class SpecgramsVisualizer(AudioVisualizer):
             self.publish_spectrogram(audio, title=label_title, win=win_name, env=str(i))
             # Rainbowgram plot
             self.publish_rainbowgram(post_audio, title=label_title, win=win_name, env=str(i))
+
+
+class MDCTVisualizer(AudioVisualizer):
+    def __init__(self, **kargs):
+        AudioVisualizer.__init__(self, **kargs)
+
+    def publish_mdct_spec(self, data, title, win, env):
+        win += '_mdct'
+        env += '_mdct'
+        self.update_tokens(win)
+        fig_spec = heatmap_plotly(data[0], title=win + f'_{title}')
+        if not self.no_visdom:
+            self.window_tokens[win] = \
+                vis.plotlyplot(fig_spec, env=self.env + '_' + env, win=win)
+        if self.save:
+            plot(fig_spec, filename=os.path.join(self.output_dir, win + f'_mdct_{title}.html'), auto_open=False)
+
+
+    def publish(self, data, name="", labels=[], output_dir=None):
+        self.output_dir = output_dir
+        # global vis
+        n_vis = min(len(data), 3)
+
+        for i, audio in enumerate(data[:self.max_n_plots]):
+            if len(labels) != len(data):
+                label_title = 'gen'
+            else:
+                label_title = '_'.join(labels[i])
+            win_name = f'{name}_{str(i)}'
+            try:
+                post_audio = self.get_waveform(audio)
+                # Audio player
+                self.publish_audio(post_audio, win=win_name, env=str(i))
+                # Audio waveform plot
+                self.publish_waveform(post_audio, title=label_title, win=win_name, env=str(i))
+                # Spectrogram plot
+                self.publish_spectrogram(post_audio, title=label_title, win=win_name, env=str(i))
+                # Rainbowgram plot
+                self.publish_rainbowgram(post_audio, title=label_title, win=win_name, env=str(i))
+                # Mel spectrogram
+            except ParameterError as pe:
+                print(pe)
+
+            self.publish_mdct_spec(audio, title=label_title, win=win_name, env=str(i))
 
 
 class MelVisualizer(AudioVisualizer):
