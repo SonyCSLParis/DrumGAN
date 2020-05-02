@@ -38,9 +38,8 @@ def train_inception_model(name: str, path: str, labels: list, config: str, batch
     transform = transform_config['transform']
     dbname = loader_config.pop('dbname')
     loader_module = get_data_loader(dbname)
-
     processor = AudioProcessor(**transform_config)
-    loader = loader_module(dbname=dbname + '_' + transform, preprocessing=processor, **loader_config)
+    loader = loader_module(name=dbname + '_' + transform, preprocessing=processor, **loader_config)
 
     val_data, val_labels = loader.get_validation_set()
     val_data = val_data[:, 0:1]
@@ -56,7 +55,6 @@ def train_inception_model(name: str, path: str, labels: list, config: str, batch
     
 
     device = "cuda" if GPU_is_available() else "cpu"
-    sm = nn.Softmax(dim=1)
 
     inception_model = nn.DataParallel(
             SpectrogramInception3(num_classes, aux_logits=False))
