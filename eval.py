@@ -22,6 +22,10 @@ if __name__ == "__main__":
                         help="For find_z_given_audio, use generated as target")
     parser.add_argument("--fake", dest="fake_path", type=str,
                         help="For find_z_given_audio, use generated as target")
+    parser.add_argument("-o", "--outdir", dest="outdir", type=str, default="",
+                        help="ooutput directory")
+    parser.add_argument("--batch-size", dest="batch_size", type=int, default=50,
+                        help="ooutput directory")
 
     if len(sys.argv) > 1 and sys.argv[1] in ['-h', '--help']:
         parser.print_help()
