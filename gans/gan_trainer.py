@@ -383,7 +383,6 @@ class GANTrainer():
             be stopped
         """
         with tqdm(dbLoader, desc='Iter-loop') as t:
-
             for inputs_real, labels in t:
                 # if inputs_real.size()[0] < self.getMiniBatchSize(scale):
                 #     continue
@@ -437,28 +436,38 @@ class GANTrainer():
         self.true_ref, self.ref_labels = self.loader.get_validation_set(batch_size)
         self.ref_labels_str = self.loader.index_to_labels(self.ref_labels, transpose=True)
 
-        batch_size = min(batch_size, len(self.ref_labels))
+        
         if self.modelConfig.ac_gan:
+            batch_size = min(batch_size, len(self.ref_labels))
             self.ref_z, _ = self.model.buildNoiseData(batch_size, inputLabels=self.ref_labels, skipAtts=True)
         else:
             self.ref_z, _ = self.model.buildNoiseData(batch_size)
 
     def test_GAN(self):
         # sample fake data
-        fake = self.model.test_G(input=self.ref_z, getAvG=False, toCPU=not self.useGPU)
-        fake_avg = self.model.test_G(input=self.ref_z, getAvG=True, toCPU=not self.useGPU)
+        fake = self.model.test_G(
+            input=self.ref_z, getAvG=False, toCPU=not self.useGPU)
+        fake_avg = self.model.test_G(
+            input=self.ref_z, getAvG=True, toCPU=not self.useGPU)
         
         # predict labels for fake data
-        D_fake, fake_emb = self.model.test_D(fake, output_device='cpu')
-        D_fake = self.loader.index_to_labels(D_fake.detach(), transpose=True)
+        D_fake, fake_emb = self.model.test_D(
+            fake, get_labels=self.modelConfig.ac_gan, output_device='cpu')
+        D_fake = self.loader.index_to_labels(
+            D_fake.detach(), transpose=True)
 
-        D_fake_avg, fake_avg_emb = self.model.test_D(fake_avg, output_device='cpu')
-        D_fake_avg = self.loader.index_to_labels(D_fake_avg.detach(), transpose=True)
+        D_fake_avg, fake_avg_emb = self.model.test_D(
+            fake_avg,  get_labels=self.modelConfig.ac_gan, output_device='cpu')
+        D_fake_avg = self.loader.index_to_labels(
+            D_fake_avg.detach(), transpose=True)
         
         # predict labels for true data
-        true, _ = self.loader.get_validation_set(len(self.ref_labels), process=True)
-        D_true, true_emb = self.model.test_D(true, output_device='cpu')
-        D_true = self.loader.index_to_labels(D_true.detach(), transpose=True)
+        true, _ = self.loader.get_validation_set(
+            len(self.ref_z), process=True)
+        D_true, true_emb = self.model.test_D(
+            true, get_labels=self.modelConfig.ac_gan, output_device='cpu')
+        D_true = self.loader.index_to_labels(
+            D_true.detach(), transpose=True)
 
         return D_true, true_emb.detach(), \
                D_fake, fake_emb.detach(), \

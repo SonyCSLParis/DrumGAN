@@ -1,5 +1,6 @@
 from torch import nn
 from data.preprocessing import AudioProcessor
+from data.audio_transforms import MelScale
 from data.loaders import get_data_loader
 from tqdm import tqdm, trange
 from utils.utils import mkdir_in_path, GPU_is_available
@@ -40,12 +41,18 @@ def train_inception_model(name: str, path: str, labels: list, config: str, batch
     loader_module = get_data_loader(dbname)
     processor = AudioProcessor(**transform_config)
     loader = loader_module(name=dbname + '_' + transform, preprocessing=processor, **loader_config)
+    
+    mel = MelScale(sample_rate=transform_config['sample_rate'],
+                   fft_size=transform_config['fft_size'],
+                   n_mel=transform_config.get('n_mel', 256),
+                   rm_dc=True)
 
     val_data, val_labels = loader.get_validation_set()
     val_data = val_data[:, 0:1]
 
     att_dict = loader.header['attributes']
     att_classes = att_dict.keys()
+
     num_classes = sum(len(att_dict[k]['values']) for k in att_classes)
   
     data_loader = DataLoader(loader,
@@ -72,19 +79,21 @@ def train_inception_model(name: str, path: str, labels: list, config: str, batch
         inception_model.train()
         for j in iter_bar:
             input, target = data_iter.next()
-
             input.requires_grad = True
+            input.to(device)
 
             # take magnitude
+            input = mel(input.float())
+            
             mag_input = F.interpolate(input[:, 0:1], (299, 299))
             optim.zero_grad()
 
             
-            output = inception_model(mag_input.float().to(device))
+            output = inception_model(mag_input.float())
             loss = criterion.getCriterion(output, target.to(device))
 
             loss.backward()
-            state_msg = f'Iter: {j}; loss: {loss:0.2f} '
+            state_msg = f'Iter: {j}; loss: {loss.item():0.2f} '
             iter_bar.set_description(state_msg)
             optim.step()
 
@@ -105,9 +114,11 @@ def train_inception_model(name: str, path: str, labels: list, config: str, batch
             y_pred = []
             y_true = []
             prec = {k: 0 for k in att_classes}
+
             for k in range(val_i):
                 vlabels = val_labels[k*batch_size:batch_size * (k+1)]
                 vdata = val_data[k*batch_size:batch_size * (k+1)]
+                vdata = mel(vdata.float())
                 vdata = F.interpolate(vdata, (299, 299))
 
                 vpred = inception_model(vdata.to(device))
@@ -117,12 +128,16 @@ def train_inception_model(name: str, path: str, labels: list, config: str, batch
                 # y_true += list(vlabels)
 
             y_pred = torch.cat(y_pred)
+
+            pred_labels = loader.index_to_labels(y_pred)
+            true_labels = loader.index_to_labels(val_labels)
             for i, c in enumerate(att_classes):
                 
                 # if class is xentroopy...
+                if att_dict[c]['loss'] == 'mse': continue
                 logging.info(c)
-                pred = [att_dict[c]['values'][int(l)] for l in y_pred.t()[i]]
-                true = [att_dict[c]['values'][int(l)] for l in val_labels.t()[i]]
+                pred = [l[i] for l in pred_labels]
+                true = [l[i] for l in true_labels]
                 cm = confusion_matrix(
                     true, pred,
                     labels=att_dict[c]['values'])
@@ -131,7 +146,8 @@ def train_inception_model(name: str, path: str, labels: list, config: str, batch
                 print(cm)
                 logging.info(cm)
                 print("")
-                crep = classification_report(true, pred, target_names=[str(v) for v in att_dict[c]['values']])
+                target_names = [str(v) for v in att_dict[c]['values']]
+                crep = classification_report(true, pred, target_names=target_names, labels=target_names)
                 logging.info(crep)
                 print(crep)
             state_msg2 = f'epoch {i}; val_loss: {vloss / val_i: 0.2f}'
