@@ -25,16 +25,16 @@ class MTGDrums(AudioDataLoader):
             return list(zip(*batch))
         return batch
 
-    def get_validation_set(self, batch_size=None, process=False):
-        if batch_size is None:
-            batch_size = len(self.val_data)
-        val_batch = self.val_data[:batch_size]
+    # def get_validation_set(self, batch_size=None, process=False):
+    #     if batch_size is None:
+    #         batch_size = len(self.val_data)
+    #     val_batch = self.val_data[:batch_size]
 
-        val_label_batch = self.val_labels[:batch_size]
-        if process:
-            val_batch = \
-                torch.stack([self.getitem_processing(v) for v in val_batch])
-        return val_batch, torch.Tensor(val_label_batch).float()
+    #     val_label_batch = self.val_labels[:batch_size]
+    #     if process:
+    #         val_batch = \
+    #             torch.stack([self.getitem_processing(v) for v in val_batch])
+    #     return val_batch, torch.Tensor(val_label_batch).float()
 
     def get_random_labels(self, batch_size):
         return torch.rand((batch_size, len(self.header['attributes'])))
