@@ -52,6 +52,7 @@ def get_standard_format(path: str, dbname='mtg-drums'):
     n_folders = 0
 
     pbar = tqdm(enumerate(audio_files), desc='Reading files')
+
     for i, file in pbar:
         if i % MAX_N_FILES_IN_FOLDER == 0:
             n_folders += 1
@@ -90,6 +91,8 @@ def get_standard_format(path: str, dbname='mtg-drums'):
                 # else:
                 attributes[att] = {
                     'type': str(att_type),
+                    'loss': 'mse',
+                    'values': [att],
                     'max': -1000.0,
                     'min': 10000.0,
                     'mean': 0.0,
@@ -137,6 +140,7 @@ def extract(path: str, criteria: dict={}):
     extraction_dir = mkdir_in_path(root_dir, str(extraction_hash))
     data_file = os.path.join(extraction_dir, 'data.pt')
     desc_file = os.path.join(extraction_dir, 'extraction.json')
+
     if os.path.exists(data_file):
         extraction_desc = read_json(desc_file)
 
@@ -155,17 +159,6 @@ def extract(path: str, criteria: dict={}):
     # get database attribute values and counts 
     # given the filtering criteria
     attribute_dict = {att: standard_desc['attributes'][att] for att in out_attributes} 
-
-    # get absolute max for normalization value
-    for i, att in enumerate(attribute_dict):
-        if i == 0:
-            max_norm_val = attribute_dict[att]['max']
-            min_norm_val = attribute_dict[att]['min']
-        else:
-            if attribute_dict[att]['max'] > max_norm_val:
-                max_norm_val = attribute_dict[att]['max']
-            if attribute_dict[att]['min'] < min_norm_val:
-                min_norm_val = attribute_dict[att]['min']
 
     size = criteria.get('size', standard_desc['total_size'])
     data = []
@@ -187,7 +180,7 @@ def extract(path: str, criteria: dict={}):
                 break
             val = item_atts[att]
             if True:
-                val = (val - min_norm_val) / (max_norm_val - min_norm_val)
+                val = (val - attribute_dict[att]['min']) / (attribute_dict[att]['max'] - attribute_dict[att]['min'])
             if att not in attribute_dict:
                 continue
             if 'std' not in attribute_dict[att]:
