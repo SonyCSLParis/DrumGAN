@@ -5,17 +5,17 @@ import numpy as np
 
 
 class InceptionScore():
-    def __init__(self, classifier):
+    def __init__(self):
 
         self.sumEntropy = 0
         self.sumSoftMax = None
         self.nItems = 0
-        self.classifier = classifier.eval()
+        # self.classifier = classifier.eval()
 
-    def updateWithMiniBatch(self, ref):
-        y = self.classifier(ref).detach()
+    def updateWithMiniBatch(self, y):
+        # y = self.classifier(ref).detach()
         if self.sumSoftMax is None:
-            self.sumSoftMax = torch.zeros(y.size()[1]).to(ref.device)
+            self.sumSoftMax = torch.zeros(y.size()[1]).to(y.device)
 
         # Entropy
         # x = F.softmax(y, dim=1, dtype=torch.float64) * F.log_softmax(y, dim=1)
