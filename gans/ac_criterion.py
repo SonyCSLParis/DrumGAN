@@ -211,7 +211,7 @@ class ACGANCriterion:
 
         shiftInput = 0
         # remove Wgan distance
-        outputD = outputD[:, :-1]
+        # outputD = outputD[:, :-1]
         outIdx = torch.Tensor(size=(outputD.size(0), 0))
         outIdx = outIdx.to(outputD.device)
         outActivation = []
