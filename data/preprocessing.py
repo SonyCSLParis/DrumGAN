@@ -1,5 +1,7 @@
 from functools import partial
 import torch
+import multiprocessing
+import resource
 
 from .audio_transforms import complex_to_lin, lin_to_complex, \
     RemoveDC, Compose, mag_to_complex, AddDC, safe_log_spec, \
@@ -8,6 +10,8 @@ from .audio_transforms import complex_to_lin, lin_to_complex, \
     imel, reshape, to_numpy, mfcc, imfcc, cqt, icqt, loader, zeropad, stft, \
     istft, to_torch
 
+
+from tqdm import tqdm
 from nsgt import NSGT, LogScale, LinScale, MelScale, OctScale
 import numpy as np
 import librosa
@@ -45,6 +49,14 @@ class DataProcessor(object):
         self.init_transform_pipeline(transform)
 
     def __call__(self, x):
+        if type(x) is list:
+            processor = self.get_preprocessor()
+            rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+            resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
+            p = multiprocessing.Pool(multiprocessing.cpu_count())
+            out = list(p.map(processor, tqdm(x, desc='preprocessing-loop')))
+            p.close()
+            return out
         return self.get_preprocessor()(x)
 
     def __hash__(self):
