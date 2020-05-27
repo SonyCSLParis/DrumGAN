@@ -14,16 +14,18 @@ from tqdm import trange
 
 
 def test(parser):
-    parser.add_argument('--size', dest='size', default=100, type=int)
-    parser.add_argument('--batch-size', dest='batch_size', default=50, type=int)
+    parser.add_argument('--size', dest='size', default=1000, type=int)
+    parser.add_argument('--gen', dest='gen', action='store_true')
     args = parser.parse_args()
     kargs = vars(args)
+    device = get_device()
     model, config, model_name = load_model_checkp(**kargs)
 
     transform_config = config['transform_config']
     loader_config = config['loader_config']
 
-    d_net = model.getOriginalD()
+    d_net = model.getOriginalD().to(device)
+    g_net = model.netG.to(device).eval()
     d_net.eval()
     # We load a dummy data loader for post-processing
     processor = AudioProcessor(**transform_config)
@@ -48,7 +50,6 @@ def test(parser):
                              batch_size=batch_size,
                              shuffle=True,
                              num_workers=2)
-    device = get_device()
 
     data_iter = iter(data_loader)
     iter_bar = trange(len(data_iter), desc='epoch-loop')
@@ -56,25 +57,34 @@ def test(parser):
     D_loss = []
     data = []
     for j in iter_bar:
-        input, target = data_iter.next()
-
         with torch.no_grad():
+            input, target = data_iter.next()
+            if args.gen:
+                z, _ = model.buildNoiseData(target.size(0), inputLabels=target, skipAtts=True)
+                input = g_net(z)
+
+            
             pred = d_net(input.float().to(device)).cpu()
-            clf_loss = criterion.getCriterion(pred, target.to(device))
+            clf_loss = criterion.getCriterion(pred, target.cpu())
             # get D loss
             D_loss.append(pred[:, -1])
-            data.append(input)
+            data.append(input.cpu())
             state_msg = f'Iter: {j}; avg D_nloss: {sum(pred[:, -1])/len(pred[:, -1]):0.3f}, classif_loss: {clf_loss:0.3f}'
             iter_bar.set_description(state_msg)
     # Create evaluation manager
     D_loss = torch.cat(D_loss)
     data = torch.cat(data)
-    D_loss, idx = D_loss.sort()
+    D_loss, idx = abs(D_loss).sort()
 
 
-    audio_out = loader.postprocess(data[idx])
+    audio_out = loader.postprocess(data[idx[:20]])
     saveAudioBatch(audio_out,
                    path=output_dir,
-                   basename='test_D_loss',
+                   basename='low_W-distance',
+                   sr=config["transform_config"]["sample_rate"])
+    audio_out = loader.postprocess(data[idx[-20:]])
+    saveAudioBatch(audio_out,
+                   path=output_dir,
+                   basename='high_W-distance',
                    sr=config["transform_config"]["sample_rate"])
     print("FINISHED!\n")
