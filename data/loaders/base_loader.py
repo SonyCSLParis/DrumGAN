@@ -12,7 +12,7 @@ from tqdm import tqdm, trange
 
 import logging
 from random import shuffle
-
+from data.db_extractors.default import extract
 from copy import deepcopy
 # from audiolazy.lazy_midi import midi2str
 
@@ -88,9 +88,8 @@ class DataLoader(ABC, data.Dataset):
         else:
             return self.data[index], labels
 
-
     def init_dataset(self):
-        if self.shuffle: 
+        if self.shuffle:
             self.shuffle_data()
         # preprocess data
         if self.preprocess:
@@ -127,8 +126,7 @@ class DataLoader(ABC, data.Dataset):
                 _min = torch.Tensor(list(att_dict['min'].values()))
                 _max = torch.Tensor(list(att_dict['max'].values()))
                 rand = torch.rand(batch_size, len(att_dict['values']))
-                labels[:, shift: shift + len(att_dict['values'])] = \
-                    (rand + _min) * _max
+                labels[:, shift: shift + len(att_dict['values'])] = rand
                 shift += len(att_dict['values'])
         return labels
 
@@ -171,6 +169,7 @@ class DataLoader(ABC, data.Dataset):
         combined = list(zip(self.data, self.metadata))
         shuffle(combined)
         self.data, self.metadata = zip(*combined)
+
 
     def index_to_labels(self, batch, transpose=False):
         label_batch = []
@@ -250,4 +249,21 @@ class AudioDataLoader(DataLoader):
                  _format="wav",
                  **kargs):
         assert _format in ['wav', 'mp3'], f"Audio format {_format} not in wav, mp3"
+        
         DataLoader.__init__(self, _format=_format, **kargs)
+
+class SimpleLoader(AudioDataLoader):
+    def __init__(self, **kargs):
+        self.metadata = []
+        AudioDataLoader.__init__(self, **kargs)
+
+    def load_data(self):
+        self.data, self.header = \
+            extract(self.data_path, criteria=self.criteria)
+    def shuffle_data(self):
+        shuffle(self.data)
+    def __getitem__(self, index):
+        return self.getitem_processing(self.data[index]), -1
+    
+    def index_to_labels(self, batch, transpose=False):
+        return []
