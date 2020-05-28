@@ -12,7 +12,6 @@ from .audio_transforms import complex_to_lin, lin_to_complex, \
 
 
 from tqdm import tqdm
-from nsgt import NSGT, LogScale, LinScale, MelScale, OctScale
 import numpy as np
 import librosa
 import mdct
@@ -234,6 +233,8 @@ class AudioProcessor(DataProcessor):
         self.post_pipeline.insert(0, partial(reshape, self.output_shape))
 
     def build_cqt_nsgt_pipeline(self):
+        from nsgt import NSGT, LogScale, LinScale, MelScale, OctScale
+
         print("")
         print("Configuring cqt_NSGT pipeline...")
 
