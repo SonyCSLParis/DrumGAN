@@ -47,7 +47,6 @@ SoundFile==0.10.3.post1
 stft==0.5.2
 threadpoolctl==2.0.0
 toolz==0.10.0
-torch==1.5.0
 torchfile==0.1.0
 torchvision==0.6.0a0+82fd1c8
 tornado==6.0.4
