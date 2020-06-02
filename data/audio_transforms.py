@@ -284,7 +284,8 @@ def istft(processor, x):
     return librosa.core.istft(
         x,
         hop_length=getattr(processor, 'hop_size', 512),
-        win_length=getattr(processor, 'win_size', 1024))
+        win_length=getattr(processor, 'win_size', 1024),
+        length=getattr(processor, 'audio_length', 16000))
 
 
 def zeropad(audio_length, signal):
@@ -371,3 +372,35 @@ def to_numpy(x):
     if type(x) == np.ndarray:
         return x
     return x.numpy()
+
+class MelScale(torch.nn.Module):
+    def __init__(self,
+                 sample_rate: int = 44100,
+                 fft_size: int = 2048,
+                 n_mel: int = 256,
+                 rm_dc: bool = False,
+                 norm: int=1):
+
+        super(MelScale, self).__init__()
+
+        mel_matrix = librosa.filters.mel(sample_rate, fft_size, n_mels=n_mel, norm=norm)
+        mel_matrix = torch.from_numpy(mel_matrix).float()
+        mel_matrix = mel_matrix / mel_matrix.max()
+
+        if False:
+            mel_norm = mel_matrix.norm(p=1, dim=-1, keepdim=True)
+            mel_norm = mel_norm.expand_as(mel_matrix)
+            mel_matrix = mel_matrix / mel_norm
+
+        i = (mel_matrix[0] == mel_matrix[0].max()).nonzero()[0]
+        mel_matrix[0, :i] = mel_matrix[0].max()
+
+        i = (mel_matrix[-1] == mel_matrix[-1].max()).nonzero()[-1]
+        mel_matrix[-1, i:] = mel_matrix[-1].max()
+        if rm_dc:
+            mel_matrix = mel_matrix[:, 1:]
+        self.mel_matrix = torch.nn.Parameter(mel_matrix)
+        self.mel_matrix.requires_grad_(False)
+
+    def forward(self, x: torch.Tensor):
+        return self.mel_matrix.matmul(x)

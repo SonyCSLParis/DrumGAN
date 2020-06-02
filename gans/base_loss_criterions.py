@@ -64,8 +64,8 @@ class WGANGP(BaseLossWrapper):
 
     def getCriterion(self, input, status):
         if status:
-            return -input[:, -1].sum()
-        return input[:, -1].sum() # This in some sources is sum() / we used mean before
+            return -input[:, -1].mean()
+        return input[:, -1].mean()
 
 
 class Logistic(BaseLossWrapper):

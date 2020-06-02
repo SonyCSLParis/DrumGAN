@@ -36,7 +36,7 @@ _C.sigmaNoise = 0.
 _C.epsilonD = 0.
 
 # Base learning rate
-_C.baseLearningRate = 0.0002
+_C.learning_rate = 0.0002
 
 # In case of AC GAN, weight on the classification loss (per scale)
 _C.weightConditionG = 0.0

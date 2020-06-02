@@ -211,19 +211,6 @@ def extract(path: str, criteria: dict={}, download: bool=False):
         attribute_dict[att]['values'].sort()
         attribute_dict[att]['count'] = {str(k): 0 for k in attribute_dict[att]['values']}
 
-    # get absolute max for normalization value
-    if 'audio-commons' in attribute_dict:
-        for i, att in enumerate(attribute_dict['audio-commons']['values']):
-            if i == 0:
-                max_norm_val = attribute_dict['audio-commons']['max'][att]
-                min_norm_val = attribute_dict['audio-commons']['min'][att]
-            else:
-                if attribute_dict['audio-commons']['max'][att] > max_norm_val:
-                    max_norm_val = attribute_dict['audio-commons']['max'][att]
-                if attribute_dict['audio-commons']['min'][att] < min_norm_val:
-                    min_norm_val = attribute_dict['audio-commons']['min'][att]
-    
-
     size = criteria.get('size', standard_desc['total_size'])
     balance = False
     if 'balance' in criteria:
@@ -288,7 +275,9 @@ def extract(path: str, criteria: dict={}, download: bool=False):
             if att == 'audio-commons':
                 
                 for ac_att in attribute_dict[att]['values']:
-                    acval = (val[ac_att] - min_norm_val) / (max_norm_val - min_norm_val)
+                    _max = attribute_dict['audio-commons']['max'][ac_att]
+                    _min = attribute_dict['audio-commons']['min'][ac_att]
+                    acval = (val[ac_att] - _min) / (_max - _min)
                     data_item += [acval]
                     attribute_dict[att]['var'][ac_att] += \
                         (attribute_dict[att]['mean'][ac_att] - val[ac_att])**2

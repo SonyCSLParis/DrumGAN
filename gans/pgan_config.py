@@ -73,7 +73,7 @@ _C.epsilonD = 0.001
 _C.miniBatchStdDev = True
 
 # Base learning rate
-_C.baseLearningRate = 0.001
+_C.learning_rate = 0.001
 
 # RGB or grey level output ?
 _C.dimOutput = 3

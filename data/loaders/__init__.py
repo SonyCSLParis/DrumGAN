@@ -4,7 +4,7 @@ from .csl_drums import CSLDrums
 from .youtube_pianos import YouTubePianos
 from .sinewaves import Sinewaves
 from .mp3towav_loader import MP3ToWAV
-
+from .base_loader import SimpleLoader
 
 AVAILABLE_DATASETS = {
 	'nsynth': NSynth,
@@ -12,7 +12,8 @@ AVAILABLE_DATASETS = {
 	'csl-drums': CSLDrums,
 	'youtube-pianos': YouTubePianos,
 	'sinewaves': Sinewaves,
-	'mp3towav': MP3ToWAV
+	'mp3towav': MP3ToWAV,
+	'default': SimpleLoader
 }
 
 def get_data_loader(name):

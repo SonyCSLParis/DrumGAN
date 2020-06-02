@@ -70,14 +70,25 @@ class ProgressiveGAN(BaseGAN):
         self.config.sizeScale0 = sizeScale0
         self.config.nScales = len(depthScales)
         self.config.output_shape = kwargs.get('output_shape')
-        self.config.scaleSizes = self.initScaleShapes(kwargs.get('downSamplingFactor'))
+        self.config.downSamplingFactor = kwargs.get('downSamplingFactor')
+        self.initScaleShapes()
+
         self.config.transposed = transposed
         BaseGAN.__init__(self, dimLatentVector, **kwargs)
 
-    def initScaleShapes(self, downSamplingFactor):
+    def initScaleShapes(self):
         h_size = self.config.output_shape[-1]
         w_size = self.config.output_shape[-2]
-        return [(int(np.ceil(w_size / df[0])), int(np.ceil(h_size / df[1]))) for df in downSamplingFactor]
+        dsf = self.config.downSamplingFactor
+        self.config.scaleSizes = [(int(np.ceil(w_size / df[0])), int(np.ceil(h_size / df[1]))) for df in dsf]
+        self.config.nScales = len(self.config.scaleSizes)
+
+    def update_config(self, config):
+        # HACK
+        BaseGAN.update_config(self, config)
+        self.initScaleShapes()
+        self.getOriginalG().scaleSizes = self.config.scaleSizes
+        self.getOriginalD().scaleSizes = self.config.scaleSizes
 
     def getNetG(self):
         print("PGAN: Building Generator")
@@ -126,20 +137,19 @@ class ProgressiveGAN(BaseGAN):
         return dnet
 
     def getOptimizerD(self):
-
-        self.config.learningRateD = self.config.learningRate
-        if type(self.config.learningRate) is list:
-            self.config.learningRateD = self.config.learningRate[1]
+        self.config.lrD = self.config.learning_rate
+        if type(self.config.learning_rate) is list:
+            self.config.lrD = self.config.learning_rate[1]
         return optim.Adam(filter(lambda p: p.requires_grad, self.netD.parameters()),
-                          betas=[0, 0.99], lr=self.config.learningRateD)
+                          betas=[0, 0.99], lr=self.config.lrD)
 
     def getOptimizerG(self):
-        self.config.learningRateG = self.config.learningRate
-        if type(self.config.learningRate) is list:
-            self.config.learningRateG = self.config.learningRate[0]
+        self.config.lrG = self.config.learning_rate
+        if type(self.config.learning_rate) is list:
+            self.config.lrG = self.config.learning_rate[0]
 
         return optim.Adam(filter(lambda p: p.requires_grad, self.netG.parameters()),
-                          betas=[0, 0.99], lr=self.config.learningRateG)
+                          betas=[0, 0.99], lr=self.config.lrG)
 
     def addScale(self, depthNewScale):
         r"""

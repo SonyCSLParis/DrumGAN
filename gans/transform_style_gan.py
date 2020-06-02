@@ -1,3 +1,4 @@
+
 import ipdb
 import librosa
 
@@ -157,15 +158,15 @@ class TStyleGAN(ProgressiveGAN):
 
     def optimizeD(self, allLosses, iter):
         # if self.lossDslidingAvg < -1000:
-        #     self.config.learningRate[1] = 2e-5
+        #     self.config.learning_rate[1] = 2e-5
         # else:
-        #     self.config.learningRate[1] = 2e-5
+        #     self.config.learning_rate[1] = 2e-5
 
         # print(f"\nSlidingAvg = {self.lossDslidingAvg}")
 
-        _, self.config.learningRate[1], _, _, _, noise_fact = self.get_lrs_from_file()
+        _, self.config.learning_rate[1], _, _, _, noise_fact = self.get_lrs_from_file()
 
-        print(f"\nLearningRateD = {self.config.learningRate[1]}")
+        print(f"\nLearningRateD = {self.config.learning_rate[1]}")
 
         self.optimizerD = self.getOptimizerD()
 
@@ -249,9 +250,9 @@ class TStyleGAN(ProgressiveGAN):
 
     def optimizeG(self, allLosses, iter):
 
-        self.config.learningRate[0], _, mse_fact, adv_fact, mask_fact, noise_fact = self.get_lrs_from_file()
+        self.config.learning_rate[0], _, mse_fact, adv_fact, mask_fact, noise_fact = self.get_lrs_from_file()
 
-        print(f"LearningRateG = {self.config.learningRate[0]}")
+        print(f"LearningRateG = {self.config.learning_rate[0]}")
 
         sig = nn.Sigmoid()
         self.optimizerG = self.getOptimizerG()

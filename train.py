@@ -9,7 +9,7 @@ from data.loaders import get_data_loader
 from data.preprocessing import AudioProcessor
 from gans import ProgressiveGANTrainer
 from utils.config import update_parser_with_config, \
-    get_config_override_from_parser
+    get_config_override_from_parser, update_config
 from utils.utils import *
 import ipdb
 
@@ -62,6 +62,10 @@ if __name__ == "__main__":
     parser.add_argument('--restart', action='store_true',
                         help=' If a checkpoint is detected, do not try to load it')
     parser.add_argument('--no-visdom', action='store_true', dest='no_visdom',
+                        help='Deactivate visdom visualization')
+    parser.add_argument('--retrain', action='store_true', dest='retrain',
+                        help='Deactivate visdom visualization')
+    parser.add_argument('--finetune', action='store_true', dest='finetune',
                         help='Deactivate visdom visualization')
 
     import resource
@@ -117,11 +121,11 @@ if __name__ == "__main__":
     
     # configure loader
     loader_config = config['loader_config']
-    dbname = loader_config.pop('dbname', args.dataset)
+    dbname = loader_config.get('dbname', args.dataset)
 
     loader_module = get_data_loader(dbname)
 
-    loader = loader_module(dbname=dbname + '_' + transform_config['transform'],
+    loader = loader_module(name=dbname + '_' + transform_config['transform'],
                            output_path=checkpoint_dir, 
                            preprocessing=audio_processor,
                            **loader_config)
@@ -130,6 +134,19 @@ if __name__ == "__main__":
     model_config['output_shape'] = audio_processor.get_output_shape()
     config["model_config"] = model_config
 
+    # load checkpoint
+    print("Search and load last checkpoint")
+    checkpoint_state = getLastCheckPoint(checkpoint_dir, 
+                                         exp_name, 
+                                         iter=args.iter, 
+                                         scale=args.scale)
+
+    # if retrain from checkpoint, create a new folder and exp_name
+    if args.retrain and checkpoint_state is not None:
+        exp_name = exp_name + '_' + args.name
+        checkpoint_dir = mkdir_in_path(config['output_path'], exp_name)
+        config["name"] = exp_name
+
     # visualization
     vis_manager = \
     getVisualizer(transform_config['transform'])(
@@ -137,10 +154,6 @@ if __name__ == "__main__":
         env=exp_name,
         sampleRate=transform_config.get('sample_rate', 16000),
         no_visdom=args.no_visdom)
-
-
-    # save config file
-    save_json(config, os.path.join(checkpoint_dir, f'{exp_name}_config.json'))
 
     GANTrainer = trainerModule(
         model_name=exp_name,
@@ -154,15 +167,25 @@ if __name__ == "__main__":
         config=model_config,
         vis_manager=vis_manager)
 
-    # load checkpoint
-    print("Search and load last checkpoint")
-    checkpoint_state = getLastCheckPoint(checkpoint_dir, 
-                                         exp_name, 
-                                         iter=args.iter, 
-                                         scale=args.scale)
     # If a checkpoint is found, load it
     if not args.restart and checkpoint_state is not None:
         train_config, model_path, tmp_data_path = checkpoint_state
-        GANTrainer.load_saved_training(model_path, train_config, tmp_data_path)
+        # if args.retrain:
+        #     train_config_file = read_json(train_config)
+        #     for k, v in config['model_config'].items():
+        #         train_config_file[k] = v
+        #     train_config = os.path.join(checkpoint_dir, f'{exp_name}_train_config.json')
+        #     save_json(train_config_file, train_config)
 
+        GANTrainer.load_saved_training(
+            model_path, 
+            train_config, 
+            tmp_data_path
+        )
+        if args.finetune:
+            GANTrainer.model.update_config(model_config)
+            update_config(GANTrainer.modelConfig, model_config)
+        # ipdb.set_trace()
+    # save config file
+    save_json(config, os.path.join(checkpoint_dir, f'{exp_name}_config.json'))
     GANTrainer.train()

@@ -67,8 +67,8 @@ def extract(path_wav: str,
     if not os.path.exists(path_wav):
         print('NSynth folder not found')
         sys.exit(1)
-    format1 = criteria.get('format1', '.wav')
-    format2 = criteria.get('format2', '.mp3')
+    format1 = criteria.get('format1', 'wav')
+    format2 = criteria.get('format2', 'mp3')
 
     extraction_hash = get_hash_dict(criteria)
     path_wav = path_wav.rstrip('/')
