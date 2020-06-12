@@ -137,7 +137,7 @@ class DataLoader(ABC, data.Dataset):
         import resource
 
         rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
-        resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
+        resource.setrlimit(resource.RLIMIT_NOFILE, rlimit)
 
         signal.signal(signal.SIGALRM, timeout)
 

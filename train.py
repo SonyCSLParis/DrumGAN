@@ -71,7 +71,8 @@ if __name__ == "__main__":
     import resource
 
     rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
-    resource.setrlimit(resource.RLIMIT_NOFILE, (32768, rlimit[1]))
+
+    resource.setrlimit(resource.RLIMIT_NOFILE, rlimit)
 
     #torch.autograd.set_detect_anomaly(True)
     cudnn.benchmark = True
