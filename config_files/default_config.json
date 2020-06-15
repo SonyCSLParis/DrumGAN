@@ -1,10 +1,10 @@
 {
     "name": "default dummy configuration",
     "comments": "test",
-    "output_path": "output_networks",
+    "output_path": "path/to/output",
     "loader_config": {
         "dbname": "default",
-        "data_path": "/Users/javier/Developer/datasets/PIANOS-YOUTUBE",
+        "data_path": "/paath/to/dataa",
         "criteria": {},
         "shuffle": true
     },
@@ -75,12 +75,12 @@
         "lossMode": "WGANGP",
         "lambdaGP": 10.0,
         "leakyness": 0.02,
-        "miniBatchStdDev": false,
-        "learning_rate": [0.0006, 0.004],
+        "miniBatchStdDev": true,
+        "learning_rate": 0.001,
         "dimOutput": 2,
         "weightConditionG": 0.0,
         "weightConditionD": 0.0,
-        "startScale": 4,
+        "startScale": 0,
         "skipAttDfake": []
     }
 }
