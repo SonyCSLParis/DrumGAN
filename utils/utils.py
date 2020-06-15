@@ -408,7 +408,7 @@ def load_model_checkp(dir, iteration=None, scale=None, **kwargs):
     name = os.path.basename(dir)
     config_path = os.path.join(dir, f'{name}_config.json')
     
-    assert os.path.exists(dir), "Cannot find {root_dir}"
+    assert os.path.exists(dir), f"Cannot find {dir}"
     assert os.path.isfile(config_path), f"Config file {config_path} not found"
     assert name is not None, f"Name {name} is not valid"
 

@@ -50,15 +50,17 @@ def generate(parser):
         name=dbname + '_' + transform_config['transform'],
         preprocessing=processor, **loader_config)
 
-    if args.val:
-        val_set = loader.get_validation_set()[1]
-        perm = torch.randperm(val_set.size(0))
-        idx = perm[:args.n_gen]
-        labels = val_set[idx]
-    elif args.train:
-        labels = torch.Tensor(random.sample(loader.metadata, k=args.n_gen))
-    else:
-        labels = loader.get_random_labels(args.n_gen)
+    labels = None
+    if model.config.ac_gan:
+        if args.val:
+            val_set = loader.get_validation_set()[1]
+            perm = torch.randperm(val_set.size(0))
+            idx = perm[:args.n_gen]
+            labels = val_set[idx]
+        elif args.train:
+            labels = torch.Tensor(random.sample(loader.metadata, k=args.n_gen))
+        else:
+            labels = loader.get_random_labels(args.n_gen)
 
     z, _ = model.buildNoiseData(args.n_gen, inputLabels=labels, skipAtts=True)
     data_batch = []
