@@ -1,0 +1,86 @@
+{
+    "name": "default dummy configuration",
+    "comments": "test",
+    "output_path": "output_networks",
+    "loader_config": {
+        "dbname": "default",
+        "data_path": "/Users/javier/Developer/datasets/PIANOS-YOUTUBE",
+        "criteria": {},
+        "shuffle": true
+    },
+    "transform_config": {
+        "transform": "stft",
+        "fade_out": true,
+        "fft_size": 1024,
+        "win_size": 1024,
+        "n_frames": 64,
+        "hop_size": 256,
+        "log": false,
+        "ifreq": false,
+        "sample_rate": 16000,
+        "audio_length": 16000
+    },
+    "model_config": {
+        "formatLayerType": "default",
+        "ac_gan": false,
+        "noise_injection": false,
+        "style_mixing": false,
+        "downSamplingFactor": [
+            [16, 16],
+            [8, 8],
+            [4, 4],
+            [2, 2],
+            [1, 1]
+        ],
+        "imagefolderDataset": true,
+        "maxIterAtScale": [
+            50,
+            50,
+            50,
+            50,
+            50
+        ],
+        "alphaJumpMode": "linear",
+        "alphaNJumps": [
+            600,
+            600,
+            600,
+            600,
+            1200
+        ],
+        "alphaSizeJumps": [
+            32,
+            32,
+            32,
+            32,
+            32
+        ],
+        "transposed": false,
+        "depthScales": [
+            5,
+            5,
+            5,
+            5,
+            5
+        ],
+        "miniBatchSize": [
+            2,
+            2,
+            2,
+            2,
+            2
+        ],
+        "dimLatentVector": 2,
+        "perChannelNormalization": true,
+        "lossMode": "WGANGP",
+        "lambdaGP": 10.0,
+        "leakyness": 0.02,
+        "miniBatchStdDev": false,
+        "learning_rate": [0.0006, 0.004],
+        "dimOutput": 2,
+        "weightConditionG": 0.0,
+        "weightConditionD": 0.0,
+        "startScale": 4,
+        "skipAttDfake": []
+    }
+}
