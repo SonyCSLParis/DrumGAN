@@ -25,15 +25,6 @@ def Upscale2d(x, factor=2):
     x = x.contiguous().view(-1, s[1], s[2] * factor, s[3] * factor)
     return x
 
-def Upscale1d(x, factor=2):
-    assert isinstance(factor, int) and factor >= 1
-    if factor == 1:
-        return x
-    s = x.size()
-    x = x.view(-1, s[1], s[2], 1)
-    x = x.expand(-1, s[1], s[2], factor)
-    x = x.contiguous().view(-1, s[1], s[2] * factor)
-    return x
 
 def getLayerNormalizationFactor(x):
     r"""
@@ -45,39 +36,6 @@ def getLayerNormalizationFactor(x):
 
     return math.sqrt(2.0 / fan_in)
 
-
-
-# class EqualLR:
-#     """spectral normalization?"""
-#     def __init__(self, name):
-#         self.name = name
-
-#     def compute_weight(self, module):
-#         weight = getattr(module, self.name + '_orig')
-#         fan_in = weight.data.size(1) * weight.data[0][0].numel()
-
-#         return weight * sqrt(2 / fan_in)
-
-#     @staticmethod
-#     def apply(module, name):
-#         fn = EqualLR(name)
-
-#         weight = getattr(module, name)
-#         del module._parameters[name]
-#         module.register_parameter(name + '_orig', nn.Parameter(weight.data))
-#         module.register_forward_pre_hook(fn)
-
-#         return fn
-
-#     def __call__(self, module, input):
-#         weight = self.compute_weight(module)
-#         setattr(module, self.name, weight)
-
-
-# def equal_lr(module, name='weight'):
-#     EqualLR.apply(module, name)
-
-#     return module
 
 
 class ConstrainedLayer(nn.Module):
@@ -116,32 +74,6 @@ class ConstrainedLayer(nn.Module):
         if self.equalized:
             x *= self.weight
         return x
-
-
-class EqualizedConv1d(ConstrainedLayer):
-
-    def __init__(self,
-                 nChannelsPrevious,
-                 nChannels,
-                 kernelSize,
-                 padding=0,
-                 bias=True,
-                 **kwargs):
-        r"""
-        A nn.Conv1d module with specific constraints
-        Args:
-            nChannelsPrevious (int): number of channels in the previous layer
-            nChannels (int): number of channels of the current layer
-            kernelSize (int): size of the convolutional kernel
-            padding (int): convolution's padding
-            bias (bool): with bias ?
-        """
-
-        ConstrainedLayer.__init__(self,
-                                  nn.Conv1d(nChannelsPrevious, nChannels,
-                                            kernelSize, padding=padding,
-                                            bias=bias),
-                                  **kwargs)
 
 
 class EqualizedConv2d(ConstrainedLayer):
@@ -190,40 +122,6 @@ class AudioNorm(nn.Module):
                                   + 1e-8)
 
 
-class Conv1DBlock(nn.Module):
-    """
-
-
-    """
-    def __init__(
-        self, in_channel, out_channel, kernel_size, padding, kernel_size2=None, 
-        padding2=None, pixel_norm=True, spectral_norm=False
-    ):
-        super().__init__()
-
-        pad1 = padding
-        pad2 = padding
-        if padding2 is not None:
-            pad2 = padding2
-
-        kernel1 = kernel_size
-        kernel2 = kernel_size
-        if kernel_size2 is not None:
-            kernel2 = kernel_size2
-
-        self.conv = nn.Sequential(EqualizedConv1d(in_channel, out_channel,
-                                            kernel1, padding=pad1),
-                                nn.LeakyReLU(0.2),
-                                EqualizedConv1d(out_channel, out_channel,
-                                            kernel2, padding=pad2),
-                                nn.LeakyReLU(0.2))
-
-    def forward(self, input):
-
-        out = self.conv(input)
-
-        return out
-
 class Conv2DBlock(nn.Module):
     """
 
@@ -258,33 +156,6 @@ class Conv2DBlock(nn.Module):
 
         return out
 
-
-class AdaptiveInstanceNorm1D(nn.Module):
-    """
-
-    """
-    def __init__(self, in_channel, style_dim):
-        super().__init__()
-        self.norm = nn.InstanceNorm1d(in_channel)
-
-        # self.style = EqualLinear(style_dim, in_channel * 2)
-        self.style = EqualizedLinear(style_dim, in_channel * 2)
-
-        self.style.module.bias.data[:in_channel] = 1
-        self.style.module.bias.data[in_channel:] = 0        
-
-        # self.style.linear.bias.data[:in_channel] = 1
-        # self.style.linear.bias.data[in_channel:] = 0
-
-    def forward(self, input, style):
-
-        style = self.style(style).unsqueeze(2)
-        gamma, beta = style.chunk(2, 1)
-
-        out = self.norm(input)
-        out = gamma * out + beta
-
-        return out
 
 class AdaptiveInstanceNorm2D(nn.Module):
     """
@@ -335,37 +206,6 @@ class EqualizedLinear(ConstrainedLayer):
 
 
 
-# class EqualLinear(nn.Module):
-#     """
-#     """
-#     def __init__(self, in_dim, out_dim):
-#         super().__init__()
-
-#         linear = nn.Linear(in_dim, out_dim)
-#         linear.weight.data.normal_()
-#         linear.bias.data.zero_()
-
-#         self.linear = equal_lr(linear)
-
-#     def forward(self, input):
-
-#         return self.linear(input)
-
-
-class ConstantInput1D(nn.Module):
-    """
-
-    """
-    def __init__(self, channel, size):
-        super().__init__()
-
-        self.input = nn.Parameter(torch.randn(1, channel, size))
-
-    def forward(self, input):
-        batch = input.shape[0]
-        out = self.input.repeat(batch, 1, 1)
-
-        return out
 
 class ConstantInput2D(nn.Module):
     """
@@ -384,17 +224,6 @@ class ConstantInput2D(nn.Module):
 
         return out
 
-class NoiseInjection1D(nn.Module):
-    """
-    """
-    def __init__(self, channel):
-        super().__init__()
-        self.weight = nn.Parameter(torch.zeros(1, channel, 1))
-
-    def forward(self, image, noise):
-
-        return image + self.weight * noise
-
 class NoiseInjection2D(nn.Module):
     """
     """
@@ -406,15 +235,6 @@ class NoiseInjection2D(nn.Module):
 
         return image + self.weight * noise
 
-class EqualizedNoiseInjection1D(ConstrainedLayer):
-    """
-    """
-    def __init__(self, nChannels, **kargs):
-        ConstrainedLayer.__init__(self, 
-                                  NoiseInjection1D(nChannels),
-                                  initBiasToZero=False,
-                                  **kargs)
-
 class EqualizedNoiseInjection2D(ConstrainedLayer):
     """
     """
@@ -424,151 +244,11 @@ class EqualizedNoiseInjection2D(ConstrainedLayer):
                                   initBiasToZero=False,
                                   **kargs)
 
-
-# class EqualConv1d(nn.Module):
-#     """
-
-#     """
-#     def __init__(self, *args, **kwargs):
-#         super().__init__()
-#         conv = nn.Conv1d(*args, **kwargs)
-
-#         conv.weight.data.normal_()
-#         conv.bias.data.zero_()
-#         self.conv = equal_lr(conv)
-
-#     def forward(self, input):
-#         return self.conv(input)
-
 class DummyBlock(nn.Module):
     def __init__(self):
         super().__init__()
     def forward(x, *args):
         return x
-
-class StyledConv1DBlock(nn.Module):
-    """
-
-    """
-    def __init__(self, in_channel, out_channel, kernel_size=3,
-                 padding=1, style_dim=512, initial=False, init_size=0):
-        super().__init__()
-
-        if initial:
-            self.conv1 = ConstantInput1D(channel=in_channel, size=init_size)
-
-        else:
-            # self.conv1 = EqualConv1d(in_channel, out_channel, kernel_size, padding=padding)
-            self.conv1 = EqualizedConv1d(in_channel, out_channel, kernel_size, padding=padding)
-
-        self.noise1 = EqualizedNoiseInjection1D(out_channel)
-        self.adain1 = AdaptiveInstanceNorm1D(out_channel, style_dim)
-        self.lrelu1 = nn.LeakyReLU(0.2)
-
-        self.conv2 = EqualizedConv1d(out_channel, out_channel, kernel_size, padding=padding)
-        self.noise2 = EqualizedNoiseInjection1D(out_channel)
-        self.adain2 = AdaptiveInstanceNorm1D(out_channel, style_dim)
-        self.lrelu2 = nn.LeakyReLU(0.2)
-
-    def forward(self, input, style, noise):
-
-        out = self.conv1(input)
-        out = self.noise1(out, noise)
-        out = self.adain1(out, style)
-        out = self.lrelu1(out)
-
-        out = self.conv2(out)
-        out = self.noise2(out, noise)
-        out = self.adain2(out, style)
-        out = self.lrelu2(out)
-
-        return out
-
-class StyledConv2DBlock(nn.Module):
-    """
-
-    """
-    def __init__(self, in_channel, out_channel, kernel_size=3, transposed=False,
-                 padding=1, style_dim=512, init_size=0, noise_injection=True,
-                 groups=1):
-        super().__init__()
-        self.noise_injection = noise_injection
-        self.conv1 = EqualizedConv2d(in_channel,
-                                     out_channel, 
-                                     kernel_size, 
-                                     padding=padding, 
-                                     transposed=transposed)
-
-        if noise_injection:
-            self.noise1 = EqualizedNoiseInjection2D(out_channel)
-        else:
-            self.noise1 = DummyBlock()
-
-        self.adain1 = AdaptiveInstanceNorm2D(out_channel, style_dim)
-        self.lrelu1 = nn.LeakyReLU(0.2)
-
-        self.conv2 = EqualizedConv2d(out_channel, 
-                                     out_channel, 
-                                     kernel_size, 
-                                     transposed=transposed,
-                                     padding=padding)
-        if noise_injection:
-            self.noise2 = EqualizedNoiseInjection2D(out_channel)
-        else:
-            self.noise2 = DummyBlock()
-        self.adain2 = AdaptiveInstanceNorm2D(out_channel, style_dim)
-        self.lrelu2 = nn.LeakyReLU(0.2)
-
-    def forward(self, input, style, noise):
-
-        out = self.conv1(input)
-        if self.noise_injection:
-            out = self.noise1(out, noise)
-        out = self.adain1(out, style)
-        out = self.lrelu1(out)
-
-        out = self.conv2(out)
-        if self.noise_injection:
-            out = self.noise2(out, noise)
-        out = self.adain2(out, style)
-        out = self.lrelu2(out)
-
-        return out
-
-
-class StyledConv2DBlockShallow(nn.Module):
-    """
-
-    """
-    def __init__(self, in_channel, out_channel, kernel_size=3, transposed=False,
-                 padding=1, style_dim=512, init_size=0, noise_injection=True,
-                 groups=1):
-        super().__init__()
-        self.noise_injection = noise_injection
-        self.conv1 = EqualizedConv2d(in_channel,
-                                     out_channel,
-                                     kernel_size,
-                                     padding=padding,
-                                     transposed=transposed,
-                                     groups=groups)
-
-        if noise_injection:
-            self.noise1 = EqualizedNoiseInjection2D(out_channel)
-        else:
-            self.noise1 = DummyBlock()
-
-        self.adain1 = AdaptiveInstanceNorm2D(out_channel, style_dim)
-        self.lrelu1 = nn.LeakyReLU(0.2)
-
-    def forward(self, input, style, noise):
-
-        out = self.conv1(input)
-        if self.noise_injection:
-            out = self.noise1(out, noise)
-        out = self.adain1(out, style)
-        out = self.lrelu1(out)
-
-        return out
 
 
 class GANsynthInitFormatLayer(nn.Module):
