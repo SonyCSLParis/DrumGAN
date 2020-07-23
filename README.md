@@ -1,25 +1,22 @@
-# AUDIO GAN LIB
-This repo contains code for comparing audio representations on the task of audio synthesis with Generative Adversarial Networks (GAN). Some of the codes are borrowed from [Facebook's GAN zoo repo](https://github.com/facebookresearch/pytorch_GAN_zoo).
+# DrumGAN: Synthesis of Drum Sounds With Timbral Feature Conditioning Using Generative Adversarial Networks
+This repo contains code for running DrumGAN, a Generative Adversarial Network that synthesizes drum sounds offering control over prcetpual features. You can find details about the specific architecture and the experiment in our ISMIR [paper](). Some of the codes are borrowed from [Facebook's GAN zoo repo](https://github.com/facebookresearch/pytorch_GAN_zoo).
 # Install
 1) Install requirements:
 
 ```
 pip install -r requirements.txt
 ```
-2) Download and install Python implementation of [NSGT transform](https://github.com/grrrr/nsgt) 
-3) In order to compute the Fréchet Audio Distance (FAD) download and install google AI repo following the instructions [here](https://github.com/google-research/google-research/tree/master/frechet_audio_distance)
+2) In order to compute the Fréchet Audio Distance (FAD) download and install google AI repo following the instructions [here](https://github.com/google-research/google-research/tree/master/frechet_audio_distance)
 
 # The dataset
-We use a subset of the [Nsynth datasaet](https://magenta.tensorflow.org/datasets/nsynth) as described in the paper accompanying this github repository.
+We train our model on a private, non-publicly available dataset containing 300k sounds of drum sounds equally distributed across kicks, snares and cymbals. This repo contains code for training a model on your own data. You will have to create a data loader, specific to the structure of your own dataset. 
 # Training a new model
 Train a new model from the module's root folder by executing:
 ```
 python train.py $ARCH -c $PATH/TO/CONFIG/FILE
 ```
 Available architectures:
-* Available soon: [DCGAN]()
 * [PGAN](https://arxiv.org/abs/1710.10196)
-* [StyleGAN](https://arxiv.org/abs/1812.04948)
 ## Example of config file:
 The experiments are defined in a configuration file with JSON format.
 ```
@@ -124,7 +121,7 @@ The experiments are defined in a configuration file with JSON format.
 ```
 
 # Evaluation
-You can run the evaluation metrics described in the paper: Pitch Inception Score (PIS), Instrument Inception Score (IIS), Pitch Kernel Inception Distance (PKID), Instrument Kernel Inception Distance (PKID) and the [Fréchet Audio Distance](https://arxiv.org/abs/1812.08466) (FAD).
+You can run the evaluation metrics described in the paper: Inception Score (IS), Kernel Inception Distance (KID), and the [Fréchet Audio Distance](https://arxiv.org/abs/1812.08466) (FAD).
 
 * For computing Inception Scores run:
 ```
@@ -138,9 +135,9 @@ python eval.py <pkid, ikid or fad> --real <path_to_real_data> --fake <path_to_fa
 
 # Synthesizing audio with a model
 ```
-python generate.py <random, scale, interpolation or from_midi> -d <path_to_model_root_folder>
+python generate.py <random, scale, radial_interpolation, spherical_interpolation, or from_midi> -d <path_to_model_root_folder>
 ```
 # Audio examples
-[Here](https://sites.google.com/view/audio-synthesis-with-gans/p%C3%A1gina-principal) you can listen to audios synthesized with models trained on a variety of audio representations, includeing the raw audio waveform and several time-frequency representations.
+[Here](https://sites.google.com/view/drumgan) you can listen to audios synthesized with DrumGAN under different conditonal settings.
 # Notes
 This repo is still a work in progress. Come later for more documentation and refactored code.
