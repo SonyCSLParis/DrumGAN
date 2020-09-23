@@ -1,5 +1,9 @@
 # DrumGAN: Synthesis of Drum Sounds With Timbral Feature Conditioning Using Generative Adversarial Networks
 This repo contains code for running DrumGAN, a Generative Adversarial Network that synthesizes drum sounds offering control over prcetpual features. You can find details about the specific architecture and the experiment in our ISMIR [paper](). Some of the codes are borrowed from [Facebook's GAN zoo repo](https://github.com/facebookresearch/pytorch_GAN_zoo).
+
+# Notes
+THIS REPO IS NOT UP TO DATE YET! Please, come back later. Sorry for the inconvenience.
+
 # Install
 1) Install requirements:
 
@@ -139,5 +143,4 @@ python generate.py <random, scale, radial_interpolation, spherical_interpolation
 ```
 # Audio examples
 [Here](https://sites.google.com/view/drumgan) you can listen to audios synthesized with DrumGAN under different conditonal settings.
-# Notes
-This repo is still a work in progress. Come later for more documentation and refactored code.
+
